@@ -22,7 +22,7 @@ cat > "$WORK/.PKGINFO" << EOF
 pkgname = lucky
 pkgver = ${VERSION}-r1
 pkgdesc = Lucky - Dynamic Domain & Port Forward Service
-arch = $ARCH
+arch = all
 maintainer = GDY666 <gdy666@foxmail.com>
 license = GPL-3.0-only
 EOF
