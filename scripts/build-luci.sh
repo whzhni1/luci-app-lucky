@@ -77,12 +77,19 @@ if [ -d "$PO_DIR" ]; then
     po_file=$(find "$lang_dir" -name "*.po" | head -1)
     [ -z "$po_file" ] && continue
     
+    # 语言代码转换
+    case "$lang" in
+      zh_Hans|zh-cn) lang_code="zh-cn" ;;
+      zh_Hant|zh-tw) lang_code="zh-tw" ;;
+      *) lang_code="$lang" ;;
+    esac
+    
     I18N_DATA=$(mktemp -d)
     mkdir -p "$I18N_DATA/usr/lib/lua/luci/i18n"
-    $PO2LMO "$po_file" "$I18N_DATA/usr/lib/lua/luci/i18n/lucky.$lang.lmo"
+    $PO2LMO "$po_file" "$I18N_DATA/usr/lib/lua/luci/i18n/lucky.$lang_code.lmo"
     
-    build_ipk "luci-i18n-lucky-$lang" "LuCI Lucky $lang translation" "libc, luci-app-lucky" "$I18N_DATA"
-    build_apk "luci-i18n-lucky-$lang" "LuCI Lucky $lang translation" "$I18N_DATA"
+    build_ipk "luci-i18n-lucky-$lang_code" "LuCI Lucky $lang_code translation" "libc, luci-app-lucky" "$I18N_DATA"
+    build_apk "luci-i18n-lucky-$lang_code" "LuCI Lucky $lang_code translation" "$I18N_DATA"
     rm -rf "$I18N_DATA"
   done
 fi
