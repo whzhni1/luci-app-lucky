@@ -3,6 +3,7 @@ set -e
 
 VERSION="${1#v}"
 ARCH="$2"
+BASE_DIR="$(pwd)"
 BINARY="resources/binaries/${ARCH}/lucky"
 FILES="resources/files"
 
@@ -16,12 +17,13 @@ declare -A ARCH_MAP=(
 APK_ARCH="${ARCH_MAP[$ARCH]:-$ARCH}"
 
 WORK=$(mktemp -d)
-mkdir -p "$WORK"/{usr/bin,etc/init.d,etc/config} output
+mkdir -p "$WORK"/{usr/bin,etc/init.d,etc/config}
+mkdir -p "$BASE_DIR/output"
 
-cp "$BINARY" "$WORK/usr/bin/lucky" && chmod 755 "$WORK/usr/bin/lucky"
-[ -f "$FILES/lucky.init" ] && cp "$FILES/lucky.init" "$WORK/etc/init.d/lucky" && chmod 755 "$WORK/etc/init.d/lucky"
-[ -f "$FILES/lucky.config" ] && cp "$FILES/lucky.config" "$WORK/etc/config/lucky"
-[ -f "$FILES/luckyarch.bin" ] && cp "$FILES/luckyarch.bin" "$WORK/usr/bin/luckyarch" && chmod 755 "$WORK/usr/bin/luckyarch"
+cp "$BASE_DIR/$BINARY" "$WORK/usr/bin/lucky" && chmod 755 "$WORK/usr/bin/lucky"
+[ -f "$BASE_DIR/$FILES/lucky.init" ] && cp "$BASE_DIR/$FILES/lucky.init" "$WORK/etc/init.d/lucky" && chmod 755 "$WORK/etc/init.d/lucky"
+[ -f "$BASE_DIR/$FILES/lucky.config" ] && cp "$BASE_DIR/$FILES/lucky.config" "$WORK/etc/config/lucky"
+[ -f "$BASE_DIR/$FILES/luckyarch.bin" ] && cp "$BASE_DIR/$FILES/luckyarch.bin" "$WORK/usr/bin/luckyarch" && chmod 755 "$WORK/usr/bin/luckyarch"
 
 cat > "$WORK/.PKGINFO" << EOF
 pkgname = lucky
@@ -33,6 +35,6 @@ license = GPL-3.0-only
 EOF
 
 cd "$WORK" && tar -czf "lucky_${VERSION}-1_${APK_ARCH}.apk" .PKGINFO *
-cp *.apk "$OLDPWD/output/"
+cp *.apk "$BASE_DIR/output/"
 rm -rf "$WORK"
 echo "✅ lucky_${VERSION}-1_${APK_ARCH}.apk"
