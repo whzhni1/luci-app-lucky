@@ -18,9 +18,8 @@ jobs:
   check-version:
     runs-on: ubuntu-latest
     outputs:
-      remote_version: ${{ steps.check.outputs.remote_version }}
+      version: ${{ steps.check.outputs.version }}
       need_update: ${{ steps.check.outputs.need_update }}
-      wanji_dir: ${{ steps.check.outputs.wanji_dir }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,58 +28,53 @@ jobs:
       - name: Check versions
         id: check
         run: |
-          REMOTE_VERSION=$(curl -sL "$RELEASE_URL/" | grep -oP 'href="v[\d.]+/"' | grep -oP 'v[\d.]+' | sort -V | tail -1)
-          LOCAL_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          WANJI_DIR=$(curl -sL "$RELEASE_URL/$REMOTE_VERSION/" | grep -oP 'href="[^"]*wanji[^"]*/"' | grep -oP '[^/"]+(?=/")' | head -1)
+          REMOTE=$(curl -sL "$RELEASE_URL/" | grep -oE 'href="\./v[0-9]+\.[0-9]+\.[0-9]+/"' | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+          LOCAL=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           
-          echo "remote_version=$REMOTE_VERSION" >> $GITHUB_OUTPUT
-          echo "wanji_dir=$WANJI_DIR" >> $GITHUB_OUTPUT
+          echo "version=$REMOTE" >> $GITHUB_OUTPUT
+          echo "Remote: $REMOTE, Local: $LOCAL"
           
-          if [ "${{ inputs.force_build }}" = "true" ]; then
+          if [ "${{ inputs.force_build }}" = "true" ] || [ -z "$LOCAL" ]; then
             echo "need_update=true" >> $GITHUB_OUTPUT
-          elif [ -z "$REMOTE_VERSION" ]; then
+          elif [ "$REMOTE" = "$LOCAL" ]; then
             echo "need_update=false" >> $GITHUB_OUTPUT
           else
-            HIGHER=$(printf '%s\n%s' "$LOCAL_VERSION" "$REMOTE_VERSION" | sort -V | tail -1)
-            [ "$HIGHER" = "$REMOTE_VERSION" ] && [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ] && echo "need_update=true" >> $GITHUB_OUTPUT || echo "need_update=false" >> $GITHUB_OUTPUT
+            HIGHER=$(printf '%s\n%s' "$LOCAL" "$REMOTE" | sort -V | tail -1)
+            [ "$HIGHER" = "$REMOTE" ] && echo "need_update=true" >> $GITHUB_OUTPUT || echo "need_update=false" >> $GITHUB_OUTPUT
           fi
-          
-          echo "Remote: $REMOTE_VERSION, Local: $LOCAL_VERSION, Update: $(cat $GITHUB_OUTPUT | grep need_update)"
 
   prepare:
     needs: check-version
     if: needs.check-version.outputs.need_update == 'true'
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Prepare resources
-        env:
-          VERSION: ${{ needs.check-version.outputs.remote_version }}
-          WANJI_DIR: ${{ needs.check-version.outputs.wanji_dir }}
         run: |
+          VER="${VERSION#v}"
+          BASE_URL="${RELEASE_URL}/${VERSION}/${VER}_wanji"
+          
           mkdir -p resources/{files,binaries}
           
-          # 获取上游配置文件
+          # 上游配置文件
           git clone --depth=1 $UPSTREAM_REPO upstream
           cp upstream/lucky/files/* resources/files/ 2>/dev/null || true
           cp -r upstream/luci-app-lucky resources/ 2>/dev/null || true
           
           # 下载二进制
-          BASE_URL="${RELEASE_URL}/${VERSION}/${WANJI_DIR}"
-          FILES=$(curl -sL "$BASE_URL/" | grep -oP 'href="[^"]*Linux[^"]*\.tar\.gz"' | grep -oP '[^"]+\.tar\.gz')
-          
           for arch in arm64 armv5 armv6 armv7 i386 mips_hardfloat mips_softfloat mipsle_hardfloat mipsle_softfloat riscv64 x86_64; do
-            FILE=$(echo "$FILES" | grep -i "${arch}" | head -1)
-            if [ -n "$FILE" ]; then
-              wget -q -O /tmp/${arch}.tar.gz "${BASE_URL}/${FILE}" && \
-              mkdir -p resources/binaries/${arch} && \
-              tar -xzf /tmp/${arch}.tar.gz -C resources/binaries/${arch} && \
-              find resources/binaries/${arch} -name "lucky" -type f -exec mv {} resources/binaries/${arch}/lucky \; && \
-              chmod +x resources/binaries/${arch}/lucky && \
-              echo "✅ $arch" || echo "❌ $arch"
-            fi
+            FILE="lucky_${VER}_Linux_${arch}_wanji.tar.gz"
+            mkdir -p resources/binaries/${arch}
+            wget -q -O /tmp/${arch}.tar.gz "${BASE_URL}/${FILE}" && \
+            tar -xzf /tmp/${arch}.tar.gz -C resources/binaries/${arch} && \
+            chmod +x resources/binaries/${arch}/lucky && \
+            echo "✅ $arch" || echo "❌ $arch"
           done
+          
+          ls -la resources/binaries/*/lucky 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         with:
@@ -102,17 +96,17 @@ jobs:
           path: resources/
 
       - name: Build packages
-        if: ${{ hashFiles(format('resources/binaries/{0}/lucky', matrix.arch)) != '' }}
         env:
-          VERSION: ${{ needs.check-version.outputs.remote_version }}
+          VERSION: ${{ needs.check-version.outputs.version }}
           ARCH: ${{ matrix.arch }}
         run: |
+          [ ! -f "resources/binaries/${ARCH}/lucky" ] && echo "Skip $ARCH" && exit 0
           chmod +x scripts/*.sh
           ./scripts/build-ipk.sh "$VERSION" "$ARCH"
           ./scripts/build-apk.sh "$VERSION" "$ARCH"
 
       - uses: actions/upload-artifact@v4
-        if: ${{ hashFiles('output/*') != '' }}
+        if: hashFiles('output/*') != ''
         with:
           name: pkg-${{ matrix.arch }}
           path: output/
@@ -129,7 +123,7 @@ jobs:
 
       - name: Build luci
         env:
-          VERSION: ${{ needs.check-version.outputs.remote_version }}
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           chmod +x scripts/build-luci.sh
           ./scripts/build-luci.sh "$VERSION"
@@ -160,6 +154,6 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.check-version.outputs.remote_version }}
-          name: Lucky ${{ needs.check-version.outputs.remote_version }}
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: Lucky ${{ needs.check-version.outputs.version }}
           files: release/*
