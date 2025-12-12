@@ -22,7 +22,7 @@ cat > "$WORK/control/control" << EOF
 Package: lucky
 Version: ${VERSION}-1
 Depends: libc
-Architecture: $ARCH
+Architecture: all
 Maintainer: GDY666 <gdy666@foxmail.com>
 Description: Lucky - Dynamic Domain & Port Forward Service
 EOF
