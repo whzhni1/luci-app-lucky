@@ -17,6 +17,7 @@ cp "$BASE_DIR/$BINARY" "$WORK/data/usr/bin/lucky" && chmod 755 "$WORK/data/usr/b
 [ -f "$BASE_DIR/$FILES/lucky.init" ] && cp "$BASE_DIR/$FILES/lucky.init" "$WORK/data/etc/init.d/lucky" && chmod 755 "$WORK/data/etc/init.d/lucky"
 [ -f "$BASE_DIR/$FILES/lucky.config" ] && cp "$BASE_DIR/$FILES/lucky.config" "$WORK/data/etc/config/lucky"
 [ -f "$BASE_DIR/$FILES/luckyarch.bin" ] && cp "$BASE_DIR/$FILES/luckyarch.bin" "$WORK/data/usr/bin/luckyarch" && chmod 755 "$WORK/data/usr/bin/luckyarch"
+find "$WORK" -type f -exec sed -i 's|/etc/lucky|/etc/config/lucky.daji|g' {} \;
 
 cat > "$WORK/control/control" << EOF
 Package: lucky
