@@ -9,15 +9,6 @@ FILES="resources/files"
 
 [ ! -f "$BINARY" ] && exit 1
 
-declare -A ARCH_MAP=(
-  [arm64]="aarch64_generic" [armv5]="arm_arm926ej-s" [armv6]="arm_arm1176jzf-s_vfp"
-  [armv7]="arm_cortex-a7_neon-vfpv4" [i386]="i386_pentium4" [x86_64]="x86_64"
-  [mips_hardfloat]="mips_24kc" [mips_softfloat]="mips_24kc_24kf"
-  [mipsle_hardfloat]="mipsel_24kc" [mipsle_softfloat]="mipsel_24kc_24kf"
-  [riscv64]="riscv64_riscv64"
-)
-OPENWRT_ARCH="${ARCH_MAP[$ARCH]:-$ARCH}"
-
 WORK=$(mktemp -d)
 mkdir -p "$WORK"/{control,data/usr/bin,data/etc/init.d,data/etc/config}
 mkdir -p "$BASE_DIR/output"
@@ -31,7 +22,7 @@ cat > "$WORK/control/control" << EOF
 Package: lucky
 Version: ${VERSION}-1
 Depends: libc
-Architecture: $OPENWRT_ARCH
+Architecture: $ARCH
 Maintainer: GDY666 <gdy666@foxmail.com>
 Description: Lucky - Dynamic Domain & Port Forward Service
 EOF
@@ -46,7 +37,7 @@ echo '#!/bin/sh
 cd "$WORK/control" && tar -czf ../control.tar.gz .
 cd "$WORK/data" && tar -czf ../data.tar.gz .
 cd "$WORK" && echo "2.0" > debian-binary
-tar -czf "lucky_${VERSION}-1_${OPENWRT_ARCH}.ipk" debian-binary control.tar.gz data.tar.gz
+tar -czf "lucky_${VERSION}-1_${ARCH}.ipk" debian-binary control.tar.gz data.tar.gz
 cp *.ipk "$BASE_DIR/output/"
 rm -rf "$WORK"
-echo "✅ lucky_${VERSION}-1_${OPENWRT_ARCH}.ipk"
+echo "✅ lucky_${VERSION}-1_${ARCH}.ipk"
