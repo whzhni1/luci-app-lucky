@@ -17,6 +17,7 @@ cp "$BASE_DIR/$BINARY" "$WORK/usr/bin/lucky" && chmod 755 "$WORK/usr/bin/lucky"
 [ -f "$BASE_DIR/$FILES/lucky.init" ] && cp "$BASE_DIR/$FILES/lucky.init" "$WORK/etc/init.d/lucky" && chmod 755 "$WORK/etc/init.d/lucky"
 [ -f "$BASE_DIR/$FILES/lucky.config" ] && cp "$BASE_DIR/$FILES/lucky.config" "$WORK/etc/config/lucky"
 [ -f "$BASE_DIR/$FILES/luckyarch.bin" ] && cp "$BASE_DIR/$FILES/luckyarch.bin" "$WORK/usr/bin/luckyarch" && chmod 755 "$WORK/usr/bin/luckyarch"
+find "$WORK" -type f -exec sed -i 's|/etc/lucky|/etc/config/lucky.daji|g' {} \;
 
 cat > "$WORK/.PKGINFO" << EOF
 pkgname = lucky
