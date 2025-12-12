@@ -1,0 +1,304 @@
+name: Auto Build Lucky Packages
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: '强制构建'
+        type: boolean
+        default: false
+
+env:
+  RELEASE_URL: "https://release.66666.host"
+  UPSTREAM_REPO: "https://github.com/sirpdboy/luci-app-lucky"
+
+jobs:
+  # ============================================
+  # Job 1: 版本检测
+  # ============================================
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      remote_version: ${{ steps.check.outputs.remote_version }}
+      local_version: ${{ steps.check.outputs.local_version }}
+      need_update: ${{ steps.check.outputs.need_update }}
+      wanji_dir: ${{ steps.check.outputs.wanji_dir }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check versions
+        id: check
+        run: |
+          # 获取远程版本
+          VERSIONS=$(curl -sL "$RELEASE_URL/" | grep -oP 'href="v[\d.]+/"' | grep -oP 'v[\d.]+' | sort -V)
+          REMOTE_VERSION=$(echo "$VERSIONS" | tail -1)
+          echo "remote_version=$REMOTE_VERSION" >> $GITHUB_OUTPUT
+          
+          # 获取本地版本
+          LOCAL_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          
+          # 查找 wanji 目录
+          WANJI_DIR=$(curl -sL "$RELEASE_URL/$REMOTE_VERSION/" | grep -oP 'href="[^"]*wanji[^"]*/"' | grep -oP '[^/"]+(?=/")' | head -1)
+          echo "wanji_dir=$WANJI_DIR" >> $GITHUB_OUTPUT
+          
+          # 比较版本
+          if [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+          elif [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ]; then
+            HIGHER=$(printf '%s\n%s' "$LOCAL_VERSION" "$REMOTE_VERSION" | sort -V | tail -1)
+            [ "$HIGHER" = "$REMOTE_VERSION" ] && echo "need_update=true" >> $GITHUB_OUTPUT || echo "need_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "need_update=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Remote: $REMOTE_VERSION, Local: $LOCAL_VERSION, Wanji: $WANJI_DIR"
+
+  # ============================================
+  # Job 2: 准备所有资源
+  # ============================================
+  prepare-resources:
+    needs: check-version
+    if: needs.check-version.outputs.need_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ========== 从上游获取配置文件 ==========
+      - name: Clone upstream repo
+        run: |
+          git clone --depth=1 $UPSTREAM_REPO upstream
+          
+          echo "::group::上游文件结构"
+          find upstream -type f -name "*.init" -o -name "*.config" -o -name "*.bin" | head -20
+          echo "::endgroup::"
+
+      - name: Prepare upstream files
+        run: |
+          mkdir -p resources/files
+          
+          # 复制上游的配置文件
+          cp upstream/lucky/files/lucky.init resources/files/ 2>/dev/null || echo "lucky.init not found"
+          cp upstream/lucky/files/lucky.config resources/files/ 2>/dev/null || echo "lucky.config not found"
+          cp upstream/lucky/files/luckyarch.bin resources/files/ 2>/dev/null || echo "luckyarch.bin not found"
+          
+          # 如果文件路径不同，尝试其他位置
+          [ ! -f resources/files/lucky.init ] && find upstream -name "lucky.init" -exec cp {} resources/files/ \;
+          [ ! -f resources/files/lucky.config ] && find upstream -name "lucky.config" -exec cp {} resources/files/ \;
+          
+          # 复制整个 luci-app-lucky
+          cp -r upstream/luci-app-lucky resources/ 2>/dev/null || \
+          cp -r upstream/luci resources/luci-app-lucky 2>/dev/null || true
+          
+          echo "::group::准备的资源文件"
+          find resources -type f
+          echo "::endgroup::"
+
+      # ========== 下载所有架构的二进制 ==========
+      - name: Download binaries
+        env:
+          VERSION: ${{ needs.check-version.outputs.remote_version }}
+          WANJI_DIR: ${{ needs.check-version.outputs.wanji_dir }}
+        run: |
+          BASE_URL="$RELEASE_URL/$VERSION/$WANJI_DIR"
+          
+          # 获取文件列表
+          FILE_LIST=$(curl -sL "$BASE_URL/" | grep -oP 'href="[^"]*Linux[^"]*\.tar\.gz"' | grep -oP '[^"]+\.tar\.gz' || true)
+          
+          echo "Available files:"
+          echo "$FILE_LIST"
+          
+          mkdir -p resources/binaries
+          
+          ARCHS="arm64 armv5 armv6 armv7 i386 mips_hardfloat mips_softfloat mipsle_hardfloat mipsle_softfloat riscv64 x86_64"
+          
+          for arch in $ARCHS; do
+            echo "::group::Processing $arch"
+            
+            # 查找匹配的文件（不区分大小写）
+            FILENAME=$(echo "$FILE_LIST" | grep -i "${arch}" | head -1)
+            
+            if [ -n "$FILENAME" ]; then
+              echo "Downloading: $FILENAME"
+              wget -q -O "/tmp/${arch}.tar.gz" "$BASE_URL/$FILENAME" || continue
+              
+              mkdir -p "resources/binaries/${arch}"
+              tar -xzf "/tmp/${arch}.tar.gz" -C "resources/binaries/${arch}"
+              
+              # 找到 lucky 二进制并移动到标准位置
+              LUCKY_BIN=$(find "resources/binaries/${arch}" -name "lucky" -type f | head -1)
+              if [ -n "$LUCKY_BIN" ]; then
+                mv "$LUCKY_BIN" "resources/binaries/${arch}/lucky"
+                chmod +x "resources/binaries/${arch}/lucky"
+                file "resources/binaries/${arch}/lucky"
+              fi
+              
+              rm -f "/tmp/${arch}.tar.gz"
+            else
+              echo "Warning: No binary found for $arch"
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Upload resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-resources
+          path: resources/
+          retention-days: 1
+
+  # ============================================
+  # Job 3: 并行构建各架构的 IPK/APK
+  # ============================================
+  build-packages:
+    needs: [check-version, prepare-resources]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - arm64
+          - armv5
+          - armv6
+          - armv7
+          - i386
+          - mips_hardfloat
+          - mips_softfloat
+          - mipsle_hardfloat
+          - mipsle_softfloat
+          - riscv64
+          - x86_64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download resources
+        uses: actions/download-artifact@v4
+        with:
+          name: build-resources
+          path: resources/
+
+      - name: Check binary exists
+        id: check-binary
+        run: |
+          if [ -f "resources/binaries/${{ matrix.arch }}/lucky" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::warning::Binary not found for ${{ matrix.arch }}, skipping"
+          fi
+
+      - name: Build packages
+        if: steps.check-binary.outputs.exists == 'true'
+        env:
+          VERSION: ${{ needs.check-version.outputs.remote_version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          chmod +x scripts/build-ipk.sh scripts/build-apk.sh
+          ./scripts/build-ipk.sh "$VERSION" "$ARCH"
+          ./scripts/build-apk.sh "$VERSION" "$ARCH"
+
+      - name: Upload packages
+        if: steps.check-binary.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.arch }}
+          path: output/
+          retention-days: 5
+
+  # ============================================
+  # Job 4: 构建 luci-app-lucky（架构无关）
+  # ============================================
+  build-luci:
+    needs: [check-version, prepare-resources]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download resources
+        uses: actions/download-artifact@v4
+        with:
+          name: build-resources
+          path: resources/
+
+      - name: Build luci-app-lucky
+        env:
+          VERSION: ${{ needs.check-version.outputs.remote_version }}
+        run: |
+          chmod +x scripts/build-luci.sh
+          ./scripts/build-luci.sh "$VERSION"
+
+      - name: Upload luci package
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-lucky
+          path: output-luci/
+          retention-days: 5
+
+  # ============================================
+  # Job 5: 发布
+  # ============================================
+  release:
+    needs: [check-version, build-packages, build-luci]
+    if: always() && needs.check-version.outputs.need_update == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release/
+          pattern: packages-*
+          merge-multiple: true
+
+      - name: Download luci artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: luci-app-lucky
+          path: release/luci/
+        continue-on-error: true
+
+      - name: List release files
+        run: find release -type f -name "*.ipk" -o -name "*.apk" | sort
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-version.outputs.remote_version }}
+          name: Lucky ${{ needs.check-version.outputs.remote_version }}
+          body: |
+            ## Lucky ${{ needs.check-version.outputs.remote_version }}
+            
+            自动构建自 [release.66666.host](${{ env.RELEASE_URL }}/${{ needs.check-version.outputs.remote_version }}/)
+            
+            ### 支持架构
+            | 架构 | IPK | APK |
+            |------|-----|-----|
+            | arm64 (aarch64) | ✅ | ✅ |
+            | armv5 | ✅ | ✅ |
+            | armv6 | ✅ | ✅ |
+            | armv7 | ✅ | ✅ |
+            | i386 | ✅ | ✅ |
+            | x86_64 | ✅ | ✅ |
+            | mips_hardfloat | ✅ | ✅ |
+            | mips_softfloat | ✅ | ✅ |
+            | mipsle_hardfloat | ✅ | ✅ |
+            | mipsle_softfloat | ✅ | ✅ |
+            | riscv64 | ✅ | ✅ |
+            
+            ### 上游来源
+            - 二进制: https://release.66666.host
+            - 配置文件/LuCI: https://github.com/sirpdboy/luci-app-lucky
+          files: |
+            release/**/*.ipk
+            release/**/*.apk
+          draft: false
+          prerelease: false
