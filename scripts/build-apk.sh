@@ -9,13 +9,6 @@ FILES="resources/files"
 
 [ ! -f "$BINARY" ] && exit 1
 
-declare -A ARCH_MAP=(
-  [arm64]="aarch64" [armv5]="armv5" [armv6]="armv6" [armv7]="armv7"
-  [i386]="x86" [x86_64]="x86_64" [mips_hardfloat]="mips" [mips_softfloat]="mips"
-  [mipsle_hardfloat]="mipsel" [mipsle_softfloat]="mipsel" [riscv64]="riscv64"
-)
-APK_ARCH="${ARCH_MAP[$ARCH]:-$ARCH}"
-
 WORK=$(mktemp -d)
 mkdir -p "$WORK"/{usr/bin,etc/init.d,etc/config}
 mkdir -p "$BASE_DIR/output"
@@ -29,12 +22,12 @@ cat > "$WORK/.PKGINFO" << EOF
 pkgname = lucky
 pkgver = ${VERSION}-r1
 pkgdesc = Lucky - Dynamic Domain & Port Forward Service
-arch = $APK_ARCH
+arch = $ARCH
 maintainer = GDY666 <gdy666@foxmail.com>
 license = GPL-3.0-only
 EOF
 
-cd "$WORK" && tar -czf "lucky_${VERSION}-1_${APK_ARCH}.apk" .PKGINFO *
+cd "$WORK" && tar -czf "lucky_${VERSION}-1_${ARCH}.apk" .PKGINFO *
 cp *.apk "$BASE_DIR/output/"
 rm -rf "$WORK"
-echo "✅ lucky_${VERSION}-1_${APK_ARCH}.apk"
+echo "✅ lucky_${VERSION}-1_${ARCH}.apk"
