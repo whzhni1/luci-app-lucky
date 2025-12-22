@@ -25,6 +25,7 @@
 - **手动**: 通过 GitHub Actions 页面触发，可选强制构建
 
 ## 📁 目录结构
+```
 .github/workflows/auto-build.yml  # 工作流文件
 scripts/                          # 构建脚本
   ├── build-ipk.sh
@@ -32,7 +33,7 @@ scripts/                          # 构建脚本
   └── build-luci.sh
 resources/                        # 构建资源
 output/                           # 包输出目录
-
+```
 ## 🔗 相关链接
 - 上游项目: https://github.com/sirpdboy/luci-app-lucky
 - 发布地址: https://release.66666.host
