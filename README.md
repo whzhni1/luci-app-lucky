@@ -2,7 +2,8 @@
 # Auto Build Lucky
 
 自动构建 Lucky 应用程序的 GitHub Actions 工作流项目。定期检查上游版本更新，自动构建多架构软件包。
-
+主要是从古大羊的https://release.66666.host获取最新二进制wanji文件编译成IPK，apk
+注意：安装时先安装架构包然后安装Luci包
 ## ✨ 特性
 - 🔄 自动版本检测（每天）
 - 🏗️ 支持 11 种处理器架构
@@ -36,5 +37,5 @@ output/                           # 包输出目录
 ```
 ## 🔗 相关链接
 - 上游项目: https://github.com/sirpdboy/luci-app-lucky
-- 发布地址: https://release.66666.host
+- 二进制地址: https://release.66666.host
 
