@@ -1,6 +1,14 @@
 
 # Auto Build Lucky
 
+## 终端执行以下命令，自动下载安装自动识别架构
+  ```bash
+  curl -fsSL "https://gitlab.com/whzhni/tailscale/-/raw/main/Auto_Install_Script.sh" | sh -s lucky
+  ```
+  ## 或
+  ```bash
+  wget -q -O - "https://gitlab.com/whzhni/tailscale/-/raw/main/Auto_Install_Script.sh" | sh -s lucky
+  ```
 自动构建 Lucky 应用程序的 GitHub Actions 工作流项目。定期检查上游版本更新，自动构建多架构软件包。
 主要是从lucky官网获取最新二进制wanji文件编译成IPK，apk
 ## 注意：安装时先安装架构包然后安装Luci包
