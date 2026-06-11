@@ -1,0 +1,104 @@
+#!/bin/sh /etc/rc.common
+START=99
+STOP=15
+USE_PROCD=1
+
+CONF=lucky
+PROG=/usr/bin/lucky
+CONFDIR=/etc/config/lucky.daji
+CRON_FILE=/etc/crontabs/root
+CRON_TAG=luci-app-lucky-autoupdate
+UPDATE_SCRIPT=/usr/libexec/lucky-update.sh
+
+# ─── 日志 ────────────────────────────────────────────────────
+log_msg() {
+    logger -t lucky -p daemon.info "$1"
+}
+
+# ─── 定时任务管理 ─────────────────────────────────────────────
+setup_cron() {
+    local auto_update interval new_entry
+    auto_update=$(uci -q get $CONF.$CONF.auto_update)  || auto_update="0"
+    interval=$(uci -q get $CONF.$CONF.update_interval) || interval="7"
+
+    # 删除旧条目
+    sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
+
+    # 启用时写入新条目
+    [ "$auto_update" = "1" ] && {
+        new_entry="0 3 */${interval} * * $UPDATE_SCRIPT auto >> /var/log/lucky-autoupdate.log 2>&1 #${CRON_TAG}"
+        echo "$new_entry" >> "$CRON_FILE"
+        log_msg "Auto update cron set: every ${interval} day(s)"
+    }
+
+    /etc/init.d/cron restart 2>/dev/null || true
+}
+
+# ─── 启动实例 ─────────────────────────────────────────────────
+start_instance() {
+    local enabled port safe delay binpath configdir
+
+    enabled=$(uci -q get $CONF.$CONF.enabled)     || enabled="0"
+    port=$(uci -q get $CONF.$CONF.port)           || port="16601"
+    safe=$(uci -q get $CONF.$CONF.safe)           || safe=""
+    delay=$(uci -q get $CONF.$CONF.delay)         || delay="60"
+    binpath=$(uci -q get $CONF.$CONF.binpath)     || binpath="$PROG"
+    configdir=$(uci -q get $CONF.$CONF.configdir) || configdir="$CONFDIR"
+
+    [ "$enabled" = "1" ] || {
+        log_msg "Lucky is disabled, skipping start."
+        return 1
+    }
+
+    # 确保数据目录存在
+    [ -d "$configdir" ] || mkdir -p "$configdir" 2>/dev/null
+
+    # 开机后 uptime < 120s 时才延迟启动
+    [ "$(awk -F. '{print $1}' /proc/uptime)" -lt 120 ] && {
+        log_msg "Delaying start by ${delay}s ..."
+        sleep "$delay"
+    }
+
+    # 写入端口配置
+    "$binpath" -setconf -key AdminWebListenPort -value "$port" -cd "$configdir" \
+        >/dev/null 2>&1
+
+    # 写入安全入口配置
+    safe="$(echo "$safe" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    if [ -z "$safe" ]; then
+        "$binpath" -rCancelSafeURL -cd "$configdir" >/dev/null 2>&1
+    else
+        "$binpath" -setconf -key SafeURL -value "$safe" -cd "$configdir" \
+            >/dev/null 2>&1
+    fi
+
+    procd_open_instance
+    procd_set_param command "$binpath"
+    procd_append_param command -cd "$configdir"
+    procd_set_param respawn
+    procd_set_param stderr 1
+    procd_close_instance
+
+    log_msg "Lucky started (port=${port} configdir=${configdir})"
+}
+
+# ─── procd 入口 ───────────────────────────────────────────────
+start_service() {
+    start_instance
+    setup_cron
+}
+
+stop_service() {
+    log_msg "Lucky stopped."
+}
+
+# UCI 配置变更后由 procd 触发：重启服务 + 刷新定时任务
+reload_service() {
+    stop
+    start
+    setup_cron
+}
+
+service_triggers() {
+    procd_add_reload_trigger lucky
+}
