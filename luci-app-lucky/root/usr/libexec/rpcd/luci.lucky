@@ -1,0 +1,234 @@
+#!/usr/bin/ucode
+'use strict';
+
+import { open, stat, readfile } from 'fs';
+
+// ─── 常量 ────────────────────────────────────────────────────
+const DEFAULTS = {
+    bin_path:        "/usr/bin/lucky",
+    config_dir:      "/etc/config/lucky.daji",
+    update_dir:      "/tmp/lucky_update",
+    update_script:   "/usr/libexec/lucky-update.sh",
+    auto_update_log: "/var/log/lucky-autoupdate.log",
+    init_script:     "/etc/init.d/lucky",
+};
+
+// ─── 工具函数 ────────────────────────────────────────────────
+function trim(s) {
+    return s ? replace(s, /^\s+|\s+$/g, '') : '';
+}
+
+function fileExists(path) {
+    return stat(path) !== null;
+}
+
+function safeRead(path) {
+    let f = open(path, 'r');
+    if (!f) return '';
+    let c = f.read('all');
+    f.close();
+    return c || '';
+}
+
+function execOutput(cmd) {
+    let f = open(`${cmd} 2>/dev/null`, 'r', 'pipe');
+    if (!f) return '';
+    let out = f.read('all');
+    f.close();
+    return out || '';
+}
+
+// 读取 UCI 配置
+function uciGet(key) {
+    return trim(execOutput(`uci -q get lucky.lucky.${key}`));
+}
+
+// 更新状态/日志文件路径
+function updFile(type) {
+    return `${DEFAULTS.update_dir}/${type}`;
+}
+
+// 解析状态前缀，如 "ready:3" 返回 "3"，否则返回 null
+function statusPrefix(status, prefix) {
+    if (index(status, prefix) === 0)
+        return substr(status, length(prefix));
+    return null;
+}
+
+// 重置更新状态文件
+function resetUpdateState() {
+    if (!fileExists(DEFAULTS.update_dir))
+        system(`mkdir -p '${DEFAULTS.update_dir}'`);
+    let f = open(updFile('status'), 'w');
+    if (f) f.close();
+    let lf = open(updFile('log'), 'w');
+    if (lf) lf.close();
+}
+
+// ─── RPC 方法实现 ─────────────────────────────────────────────
+
+// 获取服务运行状态
+function cmdGetStatus() {
+    let out = trim(execOutput('pidof lucky'));
+    return { running: length(out) > 0 };
+}
+
+// 获取系统/Lucky 信息（供 update.js 版本表格使用）
+function cmdGetSystemInfo() {
+    let arch      = trim(execOutput('uname -m'));
+    let binpath   = uciGet('binpath')   || DEFAULTS.bin_path;
+    let configdir = uciGet('configdir') || DEFAULTS.config_dir;
+    let variant   = uciGet('variant')   || 'lucky';
+
+    // Lucky 版本：优先执行二进制 --version，fallback opkg/apk
+    let version = trim(execOutput(`'${binpath}' --version 2>/dev/null | head -1`));
+    if (!version) {
+        version =
+            trim(execOutput("apk list 2>/dev/null | grep '^lucky-' | awk '{print $1}' | sed 's/^lucky-//'")) ||
+            trim(execOutput("opkg list-installed 2>/dev/null | grep '^lucky ' | awk '{print $3}'")) ||
+            'Unknown';
+    }
+
+    return {
+        version,
+        variant,
+        arch,
+        binpath,
+        configdir,
+    };
+}
+
+// 获取设备架构（供 config.js 架构检测显示使用）
+function cmdGetArch() {
+    return { arch: trim(execOutput('uname -m')) };
+}
+
+// 重置用户名密码
+function cmdResetUser() {
+    let configdir = uciGet('configdir') || DEFAULTS.config_dir;
+    let binpath   = uciGet('binpath')   || DEFAULTS.bin_path;
+    let code = system(`'${binpath}' -rResetUser -cd '${configdir}' >/dev/null 2>&1`);
+    return { result: code === 0 };
+}
+
+// 触发上游版本查询（异步，结果由 get_update_status 轮询）
+function cmdGetUpstreamVersion(args) {
+    let mirror      = args.mirror       || uciGet('mirror')       || 'github';
+    let release_type= args.release_type || uciGet('release_type') || 'stable';
+    let variant     = args.variant      || uciGet('variant')      || 'lucky';
+
+    resetUpdateState();
+
+    // 写入 checking 状态，后台执行脚本
+    let sf = open(updFile('status'), 'w');
+    if (sf) { sf.write('checking'); sf.close(); }
+
+    system(
+        `setsid '${DEFAULTS.update_script}' check` +
+        ` '${mirror}' '${release_type}' '${variant}'` +
+        ` >> '${updFile("log")}' 2>&1 &`
+    );
+
+    return { result: 'ok' };
+}
+
+// 触发下载安装（异步，结果由 get_update_status 轮询）
+function cmdDoUpdate(args) {
+    let tag      = args.tag      || '';
+    let filename = args.filename || '';
+    let binpath  = uciGet('binpath')   || DEFAULTS.bin_path;
+    let confdir  = uciGet('configdir') || DEFAULTS.config_dir;
+
+    if (!tag || !filename) return { result: 'error', msg: 'missing tag or filename' };
+
+    resetUpdateState();
+
+    let sf = open(updFile('status'), 'w');
+    if (sf) { sf.write('downloading'); sf.close(); }
+
+    system(
+        `setsid '${DEFAULTS.update_script}' download` +
+        ` '${tag}' '${filename}' '${binpath}' '${confdir}'` +
+        ` >> '${updFile("log")}' 2>&1 &`
+    );
+
+    return { result: 'ok' };
+}
+
+// 轮询更新状态
+function cmdGetUpdateStatus() {
+    let statusF = updFile('status');
+    let logF    = updFile('log');
+    let slimF   = updFile('releases.json');
+
+    if (!fileExists(statusF)) return { status: 'idle' };
+
+    let status  = trim(safeRead(statusF));
+    let logTail = fileExists(logF)
+        ? trim(execOutput(`tail -n 40 '${logF}'`))
+        : '';
+
+    // 进行中状态
+    if (status === 'checking' || status === 'downloading' || status === 'installing')
+        return { status, log: logTail };
+
+    // ready:N — 查询完成
+    let readyVal = statusPrefix(status, 'ready:');
+    if (readyVal !== null) {
+        let releases = null;
+        if (fileExists(slimF)) {
+            let raw = safeRead(slimF);
+            try { releases = json(raw); } catch(e) { releases = null; }
+        }
+        return { status: 'ready', count: int(readyVal), releases, log: logTail };
+    }
+
+    // done:VERSION — 安装完成
+    let doneVal = statusPrefix(status, 'done:');
+    if (doneVal !== null)
+        return { status: 'done', installed: doneVal, log: logTail };
+
+    // error:MSG — 出错
+    let errorVal = statusPrefix(status, 'error:');
+    if (errorVal !== null)
+        return { status: 'error', msg: errorVal, log: logTail };
+
+    return { status: 'idle' };
+}
+
+// 读取自动更新日志
+function cmdGetAutoUpdateLog() {
+    let logPath = DEFAULTS.auto_update_log;
+    if (!fileExists(logPath)) return { log: '' };
+    let content = trim(execOutput(`tail -n 200 '${logPath}'`));
+    return { log: content };
+}
+
+// ─── RPC 分发 ─────────────────────────────────────────────────
+let method = ARGV[0] ?? '';
+let args   = {};
+
+// 从 stdin 读取 JSON 参数
+try {
+    let raw = open('/dev/stdin', 'r');
+    if (raw) {
+        let body = raw.read('all');
+        raw.close();
+        if (body && length(trim(body)) > 0)
+            args = json(body) ?? {};
+    }
+} catch(e) {}
+
+let result = {};
+
+if      (method === 'get_status')           result = cmdGetStatus();
+else if (method === 'get_system_info')      result = cmdGetSystemInfo();
+else if (method === 'get_arch')             result = cmdGetArch();
+else if (method === 'reset_user')           result = cmdResetUser();
+else if (method === 'get_upstream_version') result = cmdGetUpstreamVersion(args);
+else if (method === 'do_update')            result = cmdDoUpdate(args);
+else if (method === 'get_update_status')    result = cmdGetUpdateStatus();
+else if (method === 'get_auto_update_log')  result = cmdGetAutoUpdateLog();
+else result = { error: 'unknown method' };
+
+print(result);
