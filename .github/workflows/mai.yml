@@ -1,4 +1,4 @@
-name: Auto Build Lucky1
+name: Auto Build Lucky2
 
 on:
   schedule:
@@ -55,7 +55,7 @@ jobs:
           fi
 
   # ──────────────────────────────────────────────────────
-  # 2. 准备资源
+  # 2. 准备资源（克隆上游 + sed 替换 + 下载二进制）
   # ──────────────────────────────────────────────────────
   prepare:
     needs: check-version
@@ -64,14 +64,12 @@ jobs:
     env:
       VERSION: ${{ needs.check-version.outputs.version }}
       VER_NUM: ${{ needs.check-version.outputs.ver_num }}
-    outputs:
-      linux_archs: ${{ steps.download.outputs.linux_archs }}
     steps:
-      # 2-a. 克隆上游源码（所有文件都在这里）
+      # 2-a. 克隆上游
       - name: Clone upstream
         run: git clone --depth=1 "$UPSTREAM_REPO" upstream
 
-      # 2-b. 统一 sed 替换（在 upstream 目录内操作）
+      # 2-b. 统一 sed 替换配置目录
       - name: Apply patches
         working-directory: upstream
         run: |
@@ -83,18 +81,15 @@ jobs:
                 echo "patched: $f"
               done
 
-      # 2-c. 同步版本号（lucky/Makefile 现在已存在于 upstream/lucky/Makefile）
+      # 2-c. 同步版本号
       - name: Sync PKG_VERSION
         run: |
           MAKEFILE="upstream/lucky/Makefile"
-          echo "=== 修改前 ==="
-          grep "^PKG_VERSION" "$MAKEFILE"
+          echo "=== 修改前 ===" && grep "^PKG_VERSION" "$MAKEFILE"
           sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VER_NUM/" "$MAKEFILE"
-          echo "=== 修改后 ==="
-          grep "^PKG_VERSION" "$MAKEFILE"
+          echo "=== 修改后 ===" && grep "^PKG_VERSION" "$MAKEFILE"
 
-      # 2-d. 修改 Build/Prepare：把 wget 逻辑替换为从本地复制
-      #      使用 python 处理多行替换更可靠
+      # 2-d. 替换 Build/Prepare（本地复制替代 wget）
       - name: Patch Makefile Build/Prepare
         run: |
           python3 - <<'EOF'
@@ -102,19 +97,19 @@ jobs:
 
           mk = pathlib.Path("upstream/lucky/Makefile").read_text()
 
-          new_prepare = """\
-          define Build/Prepare
-          \tmkdir -p $(PKG_BUILD_DIR)
-          \t@echo ">>> lucky_arch=$(LUCKY_ARCH)  bin_dir=$(LUCKY_BIN_DIR)"
-          \t@if [ ! -f "$(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky" ]; then \\
-          \t\techo "❌ 未找到预置二进制: $(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky"; \\
-          \t\texit 1; \\
-          \tfi
-          \tcp "$(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky" "$(PKG_BUILD_DIR)/lucky"
-          \t@echo "✅ 已复制二进制 [$(LUCKY_ARCH)]"
-          endef"""
+          new_prepare = (
+              "define Build/Prepare\n"
+              "\tmkdir -p $(PKG_BUILD_DIR)\n"
+              "\t@echo \">>> LUCKY_ARCH=$(LUCKY_ARCH)  LUCKY_BIN_DIR=$(LUCKY_BIN_DIR)\"\n"
+              "\t@if [ ! -f \"$(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky\" ]; then \\\n"
+              "\t\techo \"❌ 未找到预置二进制: $(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky\"; \\\n"
+              "\t\texit 1; \\\n"
+              "\tfi\n"
+              "\tcp \"$(LUCKY_BIN_DIR)/$(LUCKY_ARCH)/lucky\" \"$(PKG_BUILD_DIR)/lucky\"\n"
+              "\t@echo \"✅ 已复制二进制 [$(LUCKY_ARCH)]\"\n"
+              "endef"
+          )
 
-          # 替换 define Build/Prepare ... endef 块
           mk = re.sub(
               r'define Build/Prepare.*?endef',
               new_prepare,
@@ -122,9 +117,8 @@ jobs:
               flags=re.DOTALL
           )
 
-          # 同时把 LUCKY_ARCH / LUCKY_BIN_DIR 变量声明插入到 include package.mk 之前
           inject = (
-              "\n# CI 注入：外部传入时直接使用，本地构建时自动推导\n"
+              "\n# 由 CI 注入；本地构建时可手动指定\n"
               "LUCKY_BIN_DIR ?= /tmp/lucky-binaries\n\n"
           )
           mk = mk.replace(
@@ -133,58 +127,44 @@ jobs:
           )
 
           pathlib.Path("upstream/lucky/Makefile").write_text(mk)
-          print("✅ Makefile Build/Prepare 替换完成")
+          print("✅ Makefile 替换完成")
           EOF
 
           echo "=== 替换后 Build/Prepare ==="
           sed -n '/define Build\/Prepare/,/endef/p' upstream/lucky/Makefile
 
-      # 2-e. 下载 Linux 二进制，输出可用架构列表
-      - name: Download Linux binaries & detect archs
-        id: download
+      # 2-e. 下载所有 Linux 架构二进制
+      - name: Download Linux binaries
         run: |
           BASE_URL="${RELEASE_URL}/${VERSION}/${VER_NUM}_wanji"
 
-          # 从发布页面解析所有 Linux 文件名
-          ALL_FILES=$(curl -sL "${RELEASE_URL}/${VERSION}/" \
-            | grep -oE "lucky_${VER_NUM}_Linux_[^\"' <]+" \
-            | grep '\.tar\.gz$' \
-            | sort -u)
+          # 静态架构列表（与 build matrix 保持一致）
+          ARCHS="arm64 armv5 armv6 armv7 i386 \
+                 mips_hardfloat mips_softfloat \
+                 mipsle_hardfloat mipsle_softfloat \
+                 riscv64 x86_64"
 
-          echo "=== 发现以下 Linux 文件 ==="
-          echo "$ALL_FILES"
-          echo ""
-
-          SUCCESS_ARCHS=()
-          while IFS= read -r filename; do
-            [ -z "$filename" ] && continue
-            # 提取架构名: lucky_2.27.2_Linux_arm64_wanji.tar.gz → arm64
-            arch=$(echo "$filename" \
-              | sed -E "s/lucky_${VER_NUM}_Linux_(.+)_wanji\.tar\.gz/\1/")
-            [ -z "$arch" ] && continue
-
+          for arch in $ARCHS; do
+            FILE="lucky_${VER_NUM}_Linux_${arch}_wanji.tar.gz"
             DEST="binaries/${arch}"
             mkdir -p "$DEST"
 
-            echo "⬇️  [$arch] $BASE_URL/$filename"
-            if wget -q -O "/tmp/${arch}.tar.gz" "${BASE_URL}/${filename}"; then
+            echo "⬇️  [$arch] ${BASE_URL}/${FILE}"
+            if wget -q -O "/tmp/${arch}.tar.gz" "${BASE_URL}/${FILE}"; then
               tar -xzf "/tmp/${arch}.tar.gz" -C "$DEST" 2>/dev/null
               if [ -f "$DEST/lucky" ]; then
                 chmod +x "$DEST/lucky"
-                SUCCESS_ARCHS+=("\"$arch\"")
-                echo "  ✅ $arch OK"
+                echo "  ✅ $arch"
               else
                 echo "  ⚠️  $arch 解压后无 lucky 二进制"
               fi
             else
               echo "  ❌ $arch 下载失败"
             fi
-          done <<< "$ALL_FILES"
+          done
 
-          JSON="[$(IFS=,; echo "${SUCCESS_ARCHS[*]}")]"
-          echo "linux_archs=$JSON" >> $GITHUB_OUTPUT
-          echo ""
-          echo "=== 最终可用架构: $JSON ==="
+          echo "=== 下载结果 ==="
+          ls -la binaries/*/lucky 2>/dev/null || echo "无可用二进制"
 
       # 2-f. 上传 artifact
       - name: Upload binaries
@@ -193,15 +173,14 @@ jobs:
           name: binaries
           path: binaries/
 
-      # 上传整个修改后的上游源码树
       - name: Upload patched source
         uses: actions/upload-artifact@v4
         with:
           name: source
-          path: upstream/   # lucky/ luci-app-lucky/ 都在里面
+          path: upstream/
 
   # ──────────────────────────────────────────────────────
-  # 3. SDK 编译
+  # 3. SDK 编译（完全静态 matrix，不依赖动态输出）
   # ──────────────────────────────────────────────────────
   build:
     needs: [check-version, prepare]
@@ -209,28 +188,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk: [openwrt-24.10, openwrt-25.12]
-        lucky_arch: ${{ fromJson(needs.prepare.outputs.linux_archs) }}
+        # sdk_arch 是 OpenWrt SDK 的目标三元组
+        # lucky_arch 是对应的二进制目录名
         include:
-          - { lucky_arch: x86_64,           sdk_arch: x86_64               }
-          - { lucky_arch: i386,             sdk_arch: i386_pentium4         }
-          - { lucky_arch: arm64,            sdk_arch: aarch64_generic       }
-          - { lucky_arch: armv7,            sdk_arch: arm_cortex-a9_vfpv3-d16 }
-          - { lucky_arch: armv6,            sdk_arch: arm_cortex-a7         }
-          - { lucky_arch: armv5,            sdk_arch: arm_xscale            }
-          - { lucky_arch: mipsle_softfloat, sdk_arch: mipsel_24kc           }
-          - { lucky_arch: mipsle_hardfloat, sdk_arch: mipsel_74kc           }
-          - { lucky_arch: mips_softfloat,   sdk_arch: mips_24kc             }
-          - { lucky_arch: mips_hardfloat,   sdk_arch: mips_74kc             }
-          - { lucky_arch: riscv64,          sdk_arch: riscv64_riscv64       }
-        exclude:
-          - sdk_arch: ""
+          - { sdk: openwrt-24.10, sdk_arch: x86_64,                    lucky_arch: x86_64           }
+          - { sdk: openwrt-25.12, sdk_arch: x86_64,                    lucky_arch: x86_64           }
+          - { sdk: openwrt-24.10, sdk_arch: i386_pentium4,             lucky_arch: i386             }
+          - { sdk: openwrt-25.12, sdk_arch: i386_pentium4,             lucky_arch: i386             }
+          - { sdk: openwrt-24.10, sdk_arch: aarch64_generic,           lucky_arch: arm64            }
+          - { sdk: openwrt-25.12, sdk_arch: aarch64_generic,           lucky_arch: arm64            }
+          - { sdk: openwrt-24.10, sdk_arch: arm_cortex-a9_vfpv3-d16,  lucky_arch: armv7            }
+          - { sdk: openwrt-25.12, sdk_arch: arm_cortex-a9_vfpv3-d16,  lucky_arch: armv7            }
+          - { sdk: openwrt-24.10, sdk_arch: arm_cortex-a7,            lucky_arch: armv6            }
+          - { sdk: openwrt-25.12, sdk_arch: arm_cortex-a7,            lucky_arch: armv6            }
+          - { sdk: openwrt-24.10, sdk_arch: arm_xscale,               lucky_arch: armv5            }
+          - { sdk: openwrt-25.12, sdk_arch: arm_xscale,               lucky_arch: armv5            }
+          - { sdk: openwrt-24.10, sdk_arch: mipsel_24kc,              lucky_arch: mipsle_softfloat }
+          - { sdk: openwrt-25.12, sdk_arch: mipsel_24kc,              lucky_arch: mipsle_softfloat }
+          - { sdk: openwrt-24.10, sdk_arch: mipsel_74kc,              lucky_arch: mipsle_hardfloat }
+          - { sdk: openwrt-25.12, sdk_arch: mipsel_74kc,              lucky_arch: mipsle_hardfloat }
+          - { sdk: openwrt-24.10, sdk_arch: mips_24kc,                lucky_arch: mips_softfloat   }
+          - { sdk: openwrt-25.12, sdk_arch: mips_24kc,                lucky_arch: mips_softfloat   }
+          - { sdk: openwrt-24.10, sdk_arch: mips_74kc,                lucky_arch: mips_hardfloat   }
+          - { sdk: openwrt-25.12, sdk_arch: mips_74kc,                lucky_arch: mips_hardfloat   }
+          - { sdk: openwrt-24.10, sdk_arch: riscv64_riscv64,          lucky_arch: riscv64          }
+          - { sdk: openwrt-25.12, sdk_arch: riscv64_riscv64,          lucky_arch: riscv64          }
+
     steps:
       - name: Download patched source
         uses: actions/download-artifact@v4
         with:
           name: source
-          path: openwrt-packages   # SDK 会把这个目录作为 feed
+          path: openwrt-packages
 
       - name: Download binaries
         uses: actions/download-artifact@v4
@@ -238,16 +227,22 @@ jobs:
           name: binaries
           path: /tmp/lucky-binaries
 
-      - name: Fix binary permissions
+      # 二进制不存在则跳过，不报错中断整个 matrix
+      - name: Check binary & fix permissions
+        id: check_bin
         run: |
           BIN="/tmp/lucky-binaries/${{ matrix.lucky_arch }}/lucky"
-          if [ ! -f "$BIN" ]; then
-            echo "❌ 缺少二进制: $BIN，跳过此架构"
-            exit 1
+          if [ -f "$BIN" ]; then
+            chmod +x "$BIN"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✅ 找到二进制: $BIN"
+          else
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️  跳过 ${{ matrix.lucky_arch }}：二进制不存在"
           fi
-          chmod +x "$BIN"
 
       - name: Build with OpenWrt SDK
+        if: steps.check_bin.outputs.skip == 'false'
         uses: sbwml/openwrt-gh-action-sdk@main
         env:
           ARCH: ${{ matrix.sdk_arch }}-${{ matrix.sdk }}
@@ -258,8 +253,8 @@ jobs:
           LUCKY_BIN_DIR: /tmp/lucky-binaries
 
       - name: Upload packages
+        if: steps.check_bin.outputs.skip == 'false' && hashFiles('bin/packages/**/*.ipk') != ''
         uses: actions/upload-artifact@v4
-        if: hashFiles('bin/packages/**/*.ipk') != ''
         with:
           name: ipk-${{ matrix.lucky_arch }}-${{ matrix.sdk }}
           path: bin/packages/**/*.ipk
