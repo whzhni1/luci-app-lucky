@@ -21,10 +21,6 @@ define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
 INITD=/etc/init.d/lucky
-uci -q get lucky.lucky > /dev/null 2>&1 || {
-    uci set lucky.lucky=lucky
-    uci commit lucky
-}
 [ "$$(uci -q get lucky.lucky.arch)" = "auto" ] && {
     uci set lucky.lucky.arch="$$(uname -m)"
     uci commit lucky
@@ -37,7 +33,6 @@ $$INITD enable 2>/dev/null || true
     [ -x /etc/init.d/nginx  ] && /etc/init.d/nginx  restart 2>/dev/null || true
     $$INITD start 2>/dev/null || true
 ) > /dev/null 2>&1 &
-
 exit 0
 endef
 
