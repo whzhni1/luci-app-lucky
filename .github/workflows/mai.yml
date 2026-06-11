@@ -1,0 +1,254 @@
+name: Auto Build Lucky
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: '强制构建'
+        type: boolean
+        default: false
+
+env:
+  RELEASE_URL: "https://release.66666.host"
+  UPSTREAM_REPO: "https://github.com/sirpdboy/luci-app-lucky"
+
+jobs:
+  # ──────────────────────────────────────────────────────
+  # 1. 检查版本
+  # ──────────────────────────────────────────────────────
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version:     ${{ steps.check.outputs.version }}
+      ver_num:     ${{ steps.check.outputs.ver_num }}
+      need_update: ${{ steps.check.outputs.need_update }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check versions
+        id: check
+        run: |
+          REMOTE=$(curl -sL "$RELEASE_URL/" \
+            | grep -oE 'href="\./v[0-9]+\.[0-9]+\.[0-9]+/"' \
+            | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' \
+            | sort -V | tail -1)
+          LOCAL=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VER_NUM="${REMOTE#v}"
+
+          echo "version=$REMOTE"  >> $GITHUB_OUTPUT
+          echo "ver_num=$VER_NUM" >> $GITHUB_OUTPUT
+          echo "Remote=$REMOTE  Local=$LOCAL"
+
+          if [ "${{ inputs.force_build }}" = "true" ] || [ -z "$LOCAL" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+          elif [ "$REMOTE" = "$LOCAL" ]; then
+            echo "need_update=false" >> $GITHUB_OUTPUT
+          else
+            HIGHER=$(printf '%s\n%s' "$LOCAL" "$REMOTE" | sort -V | tail -1)
+            [ "$HIGHER" = "$REMOTE" ] \
+              && echo "need_update=true"  >> $GITHUB_OUTPUT \
+              || echo "need_update=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ──────────────────────────────────────────────────────
+  # 2. 准备：下载二进制 + 克隆上游 + sed 替换
+  #    输出：实际成功下载的 Linux 架构矩阵（JSON）
+  # ──────────────────────────────────────────────────────
+  prepare:
+    needs: check-version
+    if: needs.check-version.outputs.need_update == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
+      VER_NUM: ${{ needs.check-version.outputs.ver_num }}
+    outputs:
+      # JSON 数组，例如 ["arm64","x86_64","armv7",...]
+      linux_archs: ${{ steps.download.outputs.linux_archs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # 2-a. 克隆上游 + 统一 sed 替换
+      - name: Clone upstream & apply patches
+        run: |
+          git clone --depth=1 "$UPSTREAM_REPO" upstream
+
+          # 统一替换配置目录
+          find upstream -type f \( -name "*.sh" -o -name "*.init" \
+            -o -name "*.config" -o -name "*.lua" -o -name "Makefile" \) \
+            | xargs grep -rl '/etc/lucky' 2>/dev/null \
+            | while read f; do
+                sed -i 's|/etc/lucky|/etc/config/lucky.daji|g' "$f"
+                echo "patched: $f"
+              done
+
+          # 同步到本仓库
+          cp -r upstream/lucky/files/*  lucky/files/  2>/dev/null || true
+          cp -r upstream/luci-app-lucky .             2>/dev/null || true
+
+      # 2-b. 同步版本号到 Makefile
+      - name: Sync PKG_VERSION
+        run: sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VER_NUM/" lucky/Makefile
+
+      # 2-c. 下载所有 Linux 架构二进制，解析实际可用列表
+      - name: Download Linux binaries & detect archs
+        id: download
+        run: |
+          BASE_URL="${RELEASE_URL}/${VERSION}/${VER_NUM}_wanji"
+
+          # 从发布页面自动解析 Linux 架构（过滤非 Linux 平台）
+          ALL_FILES=$(curl -sL "${RELEASE_URL}/${VERSION}/" \
+            | grep -oE "lucky_${VER_NUM}_Linux_[^\"' ]+" \
+            | grep '\.tar\.gz$' \
+            | sort -u)
+
+          echo "=== 发现以下 Linux 文件 ==="
+          echo "$ALL_FILES"
+
+          SUCCESS_ARCHS=()
+          while IFS= read -r filename; do
+            # 从文件名提取架构: lucky_2.27.2_Linux_arm64_wanji.tar.gz → arm64
+            arch=$(echo "$filename" | sed -E "s/lucky_${VER_NUM}_Linux_(.+)_wanji\.tar\.gz/\1/")
+            [ -z "$arch" ] && continue
+
+            DEST="binaries/${arch}"
+            mkdir -p "$DEST"
+
+            URL="${BASE_URL}/${filename}"
+            echo "⬇️  下载 $arch ← $URL"
+            if wget -q -O "/tmp/${arch}.tar.gz" "$URL"; then
+              tar -xzf "/tmp/${arch}.tar.gz" -C "$DEST" 2>/dev/null
+              if [ -f "$DEST/lucky" ]; then
+                chmod +x "$DEST/lucky"
+                SUCCESS_ARCHS+=("\"$arch\"")
+                echo "  ✅ $arch"
+              else
+                echo "  ⚠️  $arch 解压后未找到 lucky 二进制"
+              fi
+            else
+              echo "  ❌ $arch 下载失败"
+            fi
+          done <<< "$ALL_FILES"
+
+          # 输出 JSON 数组供后续 matrix 使用
+          JSON="[$(IFS=,; echo "${SUCCESS_ARCHS[*]}")]"
+          echo "linux_archs=$JSON" >> $GITHUB_OUTPUT
+          echo "=== 可用架构: $JSON ==="
+
+      # 2-d. 上传 artifact
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: binaries/
+
+      - name: Upload patched source
+        uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: |
+            lucky/
+            luci-app-lucky/
+
+  # ──────────────────────────────────────────────────────
+  # 3. SDK 编译
+  #    矩阵由 prepare 动态生成，每个 lucky_arch 对应
+  #    一个或多个 SDK 架构
+  # ──────────────────────────────────────────────────────
+  build:
+    needs: [check-version, prepare]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [openwrt-24.10, openwrt-25.12]
+        # lucky_arch 动态来自 prepare 输出
+        lucky_arch: ${{ fromJson(needs.prepare.outputs.linux_archs) }}
+        # lucky_arch → sdk_arch 的映射
+        # 不在映射表里的 lucky_arch 会被 exclude 过滤
+        include:
+          - lucky_arch: x86_64
+            sdk_arch: x86_64
+          - lucky_arch: i386
+            sdk_arch: i386_pentium4
+          - lucky_arch: arm64
+            sdk_arch: aarch64_generic
+          - lucky_arch: armv7
+            sdk_arch: arm_cortex-a9_vfpv3-d16
+          - lucky_arch: armv6
+            sdk_arch: arm_cortex-a7
+          - lucky_arch: armv5
+            sdk_arch: arm_xscale
+          - lucky_arch: mipsle_softfloat
+            sdk_arch: mipsel_24kc
+          - lucky_arch: mipsle_hardfloat
+            sdk_arch: mipsel_74kc
+          - lucky_arch: mips_softfloat
+            sdk_arch: mips_24kc
+          - lucky_arch: mips_hardfloat
+            sdk_arch: mips_74kc
+          - lucky_arch: riscv64
+            sdk_arch: riscv64_riscv64
+        exclude:
+          # 过滤掉没有对应 sdk_arch 映射的 lucky_arch
+          - sdk_arch: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+          path: .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: /tmp/lucky-binaries
+
+      - name: Fix permissions
+        run: |
+          BIN="/tmp/lucky-binaries/${{ matrix.lucky_arch }}/lucky"
+          [ -f "$BIN" ] && chmod +x "$BIN" || { echo "❌ 缺少 $BIN"; exit 1; }
+
+      - name: Build with OpenWrt SDK
+        uses: sbwml/openwrt-gh-action-sdk@main
+        env:
+          ARCH: ${{ matrix.sdk_arch }}-${{ matrix.sdk }}
+          FEEDNAME: packages_ci
+          PACKAGES: lucky luci-app-lucky
+          NO_REFRESH_CHECK: true
+          LUCKY_ARCH: ${{ matrix.lucky_arch }}        # 注入 Makefile
+          LUCKY_BIN_DIR: /tmp/lucky-binaries           # 注入 Makefile
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        if: hashFiles('bin/packages/**/*.ipk') != ''
+        with:
+          name: ipk-${{ matrix.lucky_arch }}-${{ matrix.sdk }}
+          path: bin/packages/**/*.ipk
+
+  # ──────────────────────────────────────────────────────
+  # 4. 发布
+  # ──────────────────────────────────────────────────────
+  release:
+    needs: [check-version, build]
+    if: always() && needs.check-version.outputs.need_update == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release/
+          pattern: ipk-*
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: Lucky ${{ needs.check-version.outputs.version }}
+          files: release/**/*.ipk
