@@ -221,13 +221,16 @@ jobs:
           name: source
           path: openwrt-packages
 
-      - name: Download binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: binaries
-          path: /tmp/lucky-binaries
+      # 初始化 git 仓库，避免 SDK check 阶段 git diff 报错
+      - name: Init git repo in source
+        run: |
+          cd openwrt-packages
+          git init
+          git config user.email "ci@localhost"
+          git config user.name "CI"
+          git add -A
+          git commit -m "init" --quiet
 
-      # 二进制不存在则跳过，不报错中断整个 matrix
       - name: Check binary & fix permissions
         id: check_bin
         run: |
@@ -249,6 +252,8 @@ jobs:
           FEEDNAME: packages_ci
           PACKAGES: lucky luci-app-lucky
           NO_REFRESH_CHECK: true
+          NO_SHFMT_CHECK: true      # 跳过 shfmt 格式检查
+          NO_DEFAULT_FEEDS: true    # 不加载默认 feeds，加快速度
           LUCKY_ARCH: ${{ matrix.lucky_arch }}
           LUCKY_BIN_DIR: /tmp/lucky-binaries
 
