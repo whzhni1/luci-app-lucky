@@ -1,4 +1,4 @@
-name: Auto Build Lucky
+name: Auto Build Lucky1
 
 on:
   schedule:
