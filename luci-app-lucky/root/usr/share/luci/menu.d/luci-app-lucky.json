@@ -6,8 +6,7 @@
             "type": "firstchild"
         },
         "depends": {
-            "acl": [ "luci-app-lucky" ],
-            "uci": { "lucky": true }
+            "acl": [ "luci-app-lucky" ]
         }
     },
     "admin/services/lucky/config": {
@@ -25,12 +24,5 @@
             "type": "view",
             "path": "lucky/update"
         }
-    },
-    "admin/services/lucky/log": {
-        "title": "Log",
-        "order": 30,
-        "action": {
-            "type": "view",
-            "path": "lucky/log"
-        }
     }
+}
