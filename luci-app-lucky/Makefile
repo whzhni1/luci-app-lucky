@@ -7,6 +7,7 @@ LUCI_PKGARCH:=all
 PKG_NAME:=luci-app-lucky
 PKG_VERSION:=1.0.0
 PKG_RELEASE:=1
+PKG_PO_VERSION:=$(PKG_VERSION)
 
 LUCI_MINIFY_JS:=0
 LUCI_MINIFY_CSS:=0
@@ -20,34 +21,33 @@ endef
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
-INITD=/etc/init.d/lucky
-[ "$$(uci -q get lucky.lucky.arch)" = "auto" ] && {
+INITD=/etc/init.d
+if [ "$$(uci -q get lucky.lucky.arch)" = "auto" ]; then
     uci set lucky.lucky.arch="$$(uname -m)"
     uci commit lucky
-}
-$$INITD enable 2>/dev/null || true
-(
-    sleep 3
-    /etc/init.d/rpcd restart  2>/dev/null || true
-    [ -x /etc/init.d/uhttpd ] && /etc/init.d/uhttpd restart 2>/dev/null || true
-    [ -x /etc/init.d/nginx  ] && /etc/init.d/nginx  restart 2>/dev/null || true
-    $$INITD start 2>/dev/null || true
+fi
+$${INITD}/lucky enable
+(sleep 3
+ $${INITD}/rpcd restart
+ [ -x $${INITD}/uhttpd ] && $${INITD}/uhttpd restart
+ [ -x $${INITD}/nginx  ] && $${INITD}/nginx   restart
+ $${INITD}/lucky start
 ) > /dev/null 2>&1 &
+
 exit 0
 endef
 
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
-INITD=/etc/init.d/lucky
-$$INITD stop    2>/dev/null || true
-$$INITD disable 2>/dev/null || true
+INITD=/etc/init.d
+$${INITD}/lucky stop    2>/dev/null || true
+$${INITD}/lucky disable 2>/dev/null || true
 ubus call service delete '{"name":"lucky"}' 2>/dev/null || true
-(
-    sleep 2
-    /etc/init.d/rpcd restart  2>/dev/null || true
-    [ -x /etc/init.d/uhttpd ] && /etc/init.d/uhttpd restart 2>/dev/null || true
-    [ -x /etc/init.d/nginx  ] && /etc/init.d/nginx  restart 2>/dev/null || true
+(sleep 2
+ $${INITD}/rpcd restart
+ [ -x $${INITD}/uhttpd ] && $${INITD}/uhttpd restart
+ [ -x $${INITD}/nginx  ] && $${INITD}/nginx   restart
 ) > /dev/null 2>&1 &
 
 exit 0
