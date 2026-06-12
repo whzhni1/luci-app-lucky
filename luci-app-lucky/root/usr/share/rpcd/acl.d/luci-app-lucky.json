@@ -5,20 +5,11 @@
             "ubus": {
                 "luci.lucky": [
                     "get_status",
-                    "get_system_info",
                     "get_arch",
+                    "get_system_info",
                     "get_update_status",
                     "get_auto_update_log"
                 ]
-            },
-            "uci": {
-                "lucky": [ "*" ]
-            },
-            "file": {
-                "/var/log/lucky-autoupdate.log": [ "read" ],
-                "/tmp/lucky_update/status":      [ "read" ],
-                "/tmp/lucky_update/log":         [ "read" ],
-                "/tmp/lucky_update/releases.json":[ "read" ]
             }
         },
         "write": {
@@ -28,12 +19,6 @@
                     "get_upstream_version",
                     "do_update"
                 ]
-            },
-            "uci": {
-                "lucky": [ "*" ]
-            },
-            "file": {
-                "/tmp/lucky_update/*": [ "write" ]
             }
         }
     }
