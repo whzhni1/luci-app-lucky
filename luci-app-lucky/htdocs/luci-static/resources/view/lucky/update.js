@@ -1,542 +1,201 @@
 'use strict';
 'require view';
-'require ui';
-'require uci';
 'require rpc';
+'require uci';
 
-// ─── RPC 声明 ────────────────────────────────────────────────
-function rpcDeclare(method, params) {
-    return rpc.declare({
-        object: 'luci.lucky',
-        method: method,
-        params: params || []
-    });
-}
+var rpcC = function(m, p) { return rpc.declare({ object: 'luci.lucky', method: m, params: p }); };
+var api = {
+    info: rpcC('get_system_info'),
+    updChk: rpcC('get_upstream_version', ['mirror', 'release_type', 'variant']),
+    updStat: rpcC('get_update_status'),
+    updDo: rpcC('do_update', ['tag', 'filename']),
+    luciChk: rpcC('check_luci'),
+    luciStat: rpcC('get_luci_update_status'),
+    luciDo: rpcC('do_update_luci', ['tag', 'filename']),
+    autoLog: rpcC('get_auto_update_log')
+};
 
-var callGetSystemInfo      = rpcDeclare('get_system_info');
-var callGetUpstreamVersion = rpcDeclare('get_upstream_version', ['mirror', 'release_type', 'variant']);
-var callGetUpdateStatus    = rpcDeclare('get_update_status');
-var callDoUpdate           = rpcDeclare('do_update',            ['tag', 'filename']);
-var callGetAutoUpdateLog   = rpcDeclare('get_auto_update_log');
+var $ = function(id) { return document.getElementById(id); };
+var txt = function(id, t, c) { var e=$(id); if(e){ e.textContent=t; if(c)e.style.color=c; } };
+var vis = function(id, s, d) { var e=$(id); if(e) e.style.display = s ? (d||'block') : 'none'; };
+var log = function(id, t) { var e=$(id); if(!e||t==null)return; e.style.display='block'; e.textContent=t; e.scrollTop=e.scrollHeight; };
 
-// ─── 镜像源选项 ──────────────────────────────────────────────
-var MIRROR_OPTIONS = [
-    { value: 'github', label: 'GitHub (github.com/gdy666/lucky)' },
-    { value: 'r66666', label: 'Mirror (release.66666.plus)'      }
-];
-
-// ─── 主视图 ──────────────────────────────────────────────────
-return view.extend({
-
-    // 禁用默认页脚保存按钮（本页无 UCI 表单）
-    handleSave:      null,
-    handleSaveApply: null,
-    handleReset:     null,
-
-    load: function() {
-        return Promise.all([
-            uci.load('lucky'),
-            L.resolveDefault(callGetSystemInfo(), {})
-        ]);
-    },
-
-    render: function(data) {
-        var self      = this;
-        self._sysinfo = data[1] || {};
-
-        return E('div', { class: 'cbi-map' }, [
-            E('h2', {}, _('Lucky — Download & Update')),
-            self._buildCurrentInfo(),
-            self._buildUpdateBlock(),
-            self._buildAutoUpdateLog()
-        ]);
-    },
-
-    // ══════════════════════════════════════════════════════════
-    // § 1  当前版本信息表格
-    // ══════════════════════════════════════════════════════════
-    _buildCurrentInfo: function() {
-        var self = this;
-        var sys  = self._sysinfo;
-
-        var thStyle = 'padding:8px 16px;text-align:left;background:#f5f5f5;white-space:nowrap;';
-        var tdStyle = 'padding:8px 16px;vertical-align:middle;';
-
-        function row(label, value, id) {
-            return E('tr', {}, [
-                E('th', { style: thStyle }, label),
-                E('td', { style: tdStyle, id: id || '' }, value || _('Unknown'))
-            ]);
-        }
-
-        return E('div', { class: 'cbi-section' }, [
-            E('h3', {}, _('Current Version')),
-            E('div', { style: 'overflow-x:auto;' },
-                E('table', {
-                    style: 'width:100%;border-collapse:collapse;border:1px solid #ddd;border-radius:6px;'
-                }, [
-                    row(_('Lucky Version'),  sys.version  || _('Unknown'), '_lucky_cur_version'),
-                    row(_('Variant'),        sys.variant  || _('Unknown'), '_lucky_cur_variant'),
-                    row(_('Architecture'),   sys.arch     || _('Unknown'), '_lucky_cur_arch'),
-                    row(_('Install Path'),   sys.binpath  || _('Unknown')),
-                    row(_('Data Directory'), sys.configdir|| _('Unknown'))
-                ])
+var infoBlock = function() {
+    var th = 'padding:8px 12px;text-align:left;width:160px;', td = 'padding:8px 12px;';
+    return E('div', { class: 'cbi-section' }, [
+        E('h3', {}, _('Current Status')),
+        E('div', { style: 'overflow-x:auto;border:1px solid #ddd;border-radius:8px;' },
+            E('table', { style: 'width:100%;min-width:360px;border-collapse:collapse;' },
+                [
+                    [_('Lucky Version'),'iv'], [_('Luci Version'),'il'], [_('Variant'),'ir'],
+                    [_('Architecture'),'ia'], [_('Install Path'),'ip'], [_('Data Directory'),'ic']
+                ].map(r => E('tr', {}, [
+                    E('th', { style: th }, r[0]),
+                    E('td', { style: td, id: r[1] }, E('em', { class: 'spinning' }, _('Loading...')))
+                ]))
             )
-        ]);
-    },
+        )
+    ]);
+};
 
-    // ══════════════════════════════════════════════════════════
-    // § 2  更新操作区
-    // ══════════════════════════════════════════════════════════
-    _buildUpdateBlock: function() {
-        var self   = this;
-        var mirror = uci.get('lucky', 'lucky', 'mirror')       || 'github';
-        var reltyp = uci.get('lucky', 'lucky', 'release_type') || 'stable';
-        var varnt  = uci.get('lucky', 'lucky', 'variant')      || 'lucky';
+return view.extend({
+    handleSave: null, handleSaveApply: null, handleReset: null,
 
-        // ── 镜像源选择 ──
-        var mirrorSel = E('select', {
-            class: 'cbi-input-select',
-            id:    '_upd_mirror',
-            style: 'width:auto;'
-        }, MIRROR_OPTIONS.map(function(o) {
-            var attr = { value: o.value };
-            if (o.value === mirror) attr.selected = 'selected';
-            return E('option', attr, o.label);
-        }));
+    load: function() { return uci.load('lucky'); },
 
-        // ── 版本类型（stable / beta，镜像源为 r66666 时可选 beta）──
-        var relTypeSel = E('select', {
-            class: 'cbi-input-select',
-            id:    '_upd_reltype',
-            style: 'width:auto;'
-        }, [
-            E('option', { value: 'stable', selected: reltyp === 'stable' ? 'selected' : null },
-                _('Stable')),
-            E('option', { value: 'beta',   selected: reltyp === 'beta'   ? 'selected' : null },
-                _('Beta'))
-        ]);
+    render: function() {
+        var self = this;
+        var m = uci.get('lucky', 'lucky', 'mirror') || 'github';
+        var r = uci.get('lucky', 'lucky', 'release_type') || 'stable';
+        var v = uci.get('lucky', 'lucky', 'variant') || 'lucky';
 
-        // beta 仅在 r66666 时显示
-        var relTypeRow = E('div', {
-            id:    '_upd_reltype_row',
-            style: 'display:' + (mirror === 'r66666' ? 'flex' : 'none') +
-                   ';align-items:center;gap:8px;flex-wrap:wrap;'
-        }, [
-            E('label', {}, _('Release Channel:')),
-            relTypeSel
-        ]);
-
-        // 切换镜像源时联动显示/隐藏 beta 选项
-        mirrorSel.addEventListener('change', function() {
-            var row = document.getElementById('_upd_reltype_row');
-            if (row) row.style.display = this.value === 'r66666' ? 'flex' : 'none';
-        });
-
-        // ── 变体选择 ──
-        var variantSel = E('select', {
-            class: 'cbi-input-select',
-            id:    '_upd_variant',
-            style: 'width:auto;'
-        }, [
-            E('option', { value: 'lucky', selected: varnt === 'lucky' ? 'selected' : null },
-                _('Standard (lucky)')),
-            E('option', { value: 'wanji', selected: varnt === 'wanji' ? 'selected' : null },
-                _('Full-featured (wanji)'))
-        ]);
-
-        // ── 版本标签下拉 ──
-        var tagSel = E('select', {
-            class: 'cbi-input-select',
-            id:    '_upd_tag',
-            style: 'width:auto;max-width:200px;'
-        });
-
-        // ── 文件下拉 ──
-        var fileSel = E('select', {
-            class: 'cbi-input-select',
-            id:    '_upd_file',
-            style: 'width:auto;max-width:320px;overflow:hidden;text-overflow:ellipsis;'
-        });
-
-        // ── 版本/文件行（查询后显示）──
-        var selectsRow = E('div', {
-            id:    '_upd_selects',
-            style: 'display:none;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;'
-        }, [
-            E('label', {}, _('Version:')),
-            tagSel,
-            E('label', {}, _('File:')),
-            fileSel,
-            E('button', {
-                class: 'btn cbi-button-apply',
-                id:    '_upd_do_btn',
-                click: function() { self._doUpdate(); }
-            }, _('Update Now'))
-        ]);
-
-        // ── 状态文字 ──
-        var statusEl = E('span', {
-            id:    '_upd_status',
-            style: 'font-size:13px;color:#888;'
-        }, _('Click "Check" to get available versions'));
-
-        // ── 镜像源切换重试行 ──
-        var mirrorRetryRow = E('div', {
-            id:    '_upd_mirror_retry',
-            style: 'display:none;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;'
-        }, [
-            E('span', { style: 'font-size:13px;color:#666;' }, _('Switch mirror and retry:')),
-            E('select', {
-                class: 'cbi-input-select',
-                id:    '_upd_retry_mirror',
-                style: 'width:auto;'
-            }, MIRROR_OPTIONS.map(function(o) {
-                var attr = { value: o.value };
-                if (o.value === mirror) attr.selected = 'selected';
-                return E('option', attr, o.label);
-            })),
-            E('button', {
-                class: 'btn cbi-button-action',
-                click: function() {
-                    var rm = document.getElementById('_upd_retry_mirror');
-                    var m  = document.getElementById('_upd_mirror');
-                    if (rm && m) m.value = rm.value;
-                    self._checkUpstream();
-                }
-            }, _('Retry'))
-        ]);
-
-        // ── 日志框 ──
-        var logEl = E('pre', {
-            id:    '_upd_log',
-            style: [
-                'display:none', 'margin-top:10px',
-                'background:#1e1e1e', 'color:#d4d4d4',
-                'padding:10px', 'font-size:12px',
-                'height:220px', 'overflow-y:auto',
-                'border-radius:4px', 'white-space:pre-wrap',
-                'font-family:monospace'
-            ].join(';')
-        });
-
-        return E('div', { class: 'cbi-section' }, [
-            E('h3', {}, _('Check & Update')),
-
-            // 选项行
-            E('div', { style: 'display:flex;flex-wrap:wrap;gap:12px;align-items:center;' }, [
-                E('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-                    E('label', {}, _('Mirror:')),
-                    mirrorSel
+        var mirrorExt = E('div', { id: 'upd_retry', style: 'display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;' }, [
+            E('span', { style: 'font-size:13px;' }, _('Switch and retry:')),
+            E('select', { class: 'cbi-input-select', id: 'upd_rmir', style: 'width:auto;', change: function() { vis('upd_rext', this.value === 'r66666', 'flex'); } }, [
+                E('option', { value: 'github', selected: m==='github'?'selected':null }, 'GitHub'),
+                E('option', { value: 'r66666', selected: m==='r66666'?'selected':null }, 'Mirror (release.66666.host)')
+            ]),
+            E('span', { id: 'upd_rext', style: 'display:'+(m==='r66666'?'flex':'none')+';gap:8px;align-items:center;' }, [
+                E('select', { class: 'cbi-input-select', id: 'upd_rrel', style: 'width:auto;' }, [
+                    E('option', { value: 'stable', selected: r==='stable'?'selected':null }, _('Stable')),
+                    E('option', { value: 'beta', selected: r==='beta'?'selected':null }, _('Beta'))
                 ]),
-                relTypeRow,
-                E('div', { style: 'display:flex;align-items:center;gap:8px;' }, [
-                    E('label', {}, _('Variant:')),
-                    variantSel
+                E('select', { class: 'cbi-input-select', id: 'upd_rvar', style: 'width:auto;' }, [
+                    E('option', { value: 'lucky', selected: v==='lucky'?'selected':null }, _('Standard')),
+                    E('option', { value: 'wanji', selected: v==='wanji'?'selected':null }, _('Full-featured'))
                 ])
             ]),
-
-            // 查询按钮 + 状态
-            E('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:12px;' }, [
-                E('button', {
-                    class: 'btn cbi-button-action',
-                    id:    '_upd_check_btn',
-                    click: function() { self._checkUpstream(); }
-                }, _('Check Upstream Version')),
-                statusEl
-            ]),
-
-            mirrorRetryRow,
-            selectsRow,
-            logEl
+            E('button', { class: 'btn cbi-button-action', click: function() { self._chk('upd', true); } }, _('Retry'))
         ]);
-    },
 
-    // ══════════════════════════════════════════════════════════
-    // § 3  自动更新日志区
-    // ══════════════════════════════════════════════════════════
-    _buildAutoUpdateLog: function() {
-        var self = this;
+        var buildB = function(t, tLbl, bLbl, ext) {
+            return E('div', { class: 'cbi-section' }, [
+                E('h3', {}, tLbl),
+                E('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;' }, [
+                    E('button', { class: 'btn cbi-button-action', id: t+'_chk', click: function(){ self._chk(t); } }, bLbl),
+                    E('span', { id: t+'_stat', style: 'font-size:13px;color:#888;' }, _('Click to check'))
+                ]),
+                ext || '',
+                E('div', { id: t+'_sels', style: 'display:none;margin-top:10px;' },
+                    E('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;' }, [
+                        E('label', {}, _('Version:')),
+                        E('select', { class: 'cbi-input-select', id: t+'_tag', style: 'width:auto;max-width:200px;', change: function(){ self._sel(t); } }),
+                        E('label', {}, _('File:')),
+                        E('select', { class: 'cbi-input-select', id: t+'_file', style: 'width:auto;max-width:360px;' }),
+                        E('button', { class: 'btn cbi-button-apply', id: t+'_do', click: function(){ self._do(t); } }, _('Install Now'))
+                    ])
+                ),
+                E('pre', { id: t+'_log', style: 'display:none;margin-top:10px;background:#1e1e1e;color:#d4d4d4;padding:10px;font-size:12px;height:200px;overflow-y:auto;border-radius:4px;white-space:pre-wrap;font-family:monospace;' })
+            ]);
+        };
 
-        var logEl = E('pre', {
-            id:    '_auto_log_content',
-            style: [
-                'display:none', 'margin-top:10px',
-                'background:#1e1e1e', 'color:#d4d4d4',
-                'padding:10px', 'font-size:12px',
-                'height:220px', 'overflow-y:auto',
-                'border-radius:4px', 'white-space:pre-wrap',
-                'font-family:monospace'
-            ].join(';')
-        });
-
-        return E('div', { class: 'cbi-section' }, [
-            E('h3', {}, _('Auto Update Log')),
-            E('div', { style: 'display:flex;align-items:center;gap:10px;' }, [
-                E('button', {
-                    class: 'btn cbi-button-action',
-                    click: function() {
-                        self._loadAutoUpdateLog(logEl);
-                    }
-                }, _('View Auto Update Log')),
-                E('span', {
-                    id:    '_auto_log_status',
-                    style: 'font-size:13px;color:#888;'
-                }, '')
-            ]),
-            logEl
+        var content = E('div', { class: 'cbi-map' }, [
+            E('h2', {}, _('Lucky — Download & Update')),
+            infoBlock(),
+            buildB('upd', _('Lucky Binary Update'), _('Check Upstream'), mirrorExt),
+            buildB('luci', _('Luci App Update'), _('Check Luci Version')),
+            E('div', { class: 'cbi-section' }, [
+                E('h3', {}, _('Auto Update Log')),
+                E('div', { style: 'display:flex;align-items:center;gap:10px;' }, 
+                    E('button', { class: 'btn cbi-button-action', click: function() { L.resolveDefault(api.autoLog(), {}).then(res => log('auto_log', res.log || _('(No log)'))); } }, _('View Log'))
+                ),
+                E('pre', { id: 'auto_log', style: 'display:none;margin-top:10px;background:#1e1e1e;color:#d4d4d4;padding:10px;font-size:12px;height:200px;overflow-y:auto;border-radius:4px;white-space:pre-wrap;font-family:monospace;' })
+            ])
         ]);
+
+        this._info();
+        return content;
     },
 
-    // ══════════════════════════════════════════════════════════
-    // § 内部方法
-    // ══════════════════════════════════════════════════════════
+    _chk: function(t, retry) {
+        var self = this, btn = $(t+'_chk');
+        if (btn) btn.disabled = true;
+        vis(t+'_retry', false); vis(t+'_sels', false); vis(t+'_log', false);
+        txt(t+'_stat', _('Checking…'), '#888');
 
-    // 辅助：获取 DOM 元素
-    _el: function(id) { return document.getElementById(id); },
-
-    // 辅助：设置状态文字
-    _setStatus: function(id, text, color) {
-        var el = this._el(id);
-        if (el) { el.textContent = text; el.style.color = color || '#888'; }
-    },
-
-    // 辅助：显示/隐藏元素
-    _show: function(id, flex) {
-        var el = this._el(id);
-        if (el) el.style.display = flex ? 'flex' : 'block';
-    },
-    _hide: function(id) {
-        var el = this._el(id);
-        if (el) el.style.display = 'none';
-    },
-
-    // 辅助：写入日志框
-    _appendLog: function(elOrId, text) {
-        var el = typeof elOrId === 'string' ? this._el(elOrId) : elOrId;
-        if (!el) return;
-        el.style.display = 'block';
-        el.textContent   = text || '';
-        el.scrollTop     = el.scrollHeight;
-    },
-
-    // ── 查询上游版本 ──────────────────────────────────────────
-    _checkUpstream: function() {
-        var self     = this;
-        var mirror   = (self._el('_upd_mirror')  || {}).value || 'github';
-        var reltype  = (self._el('_upd_reltype') || {}).value || 'stable';
-        var variant  = (self._el('_upd_variant') || {}).value || 'lucky';
-        var checkBtn = self._el('_upd_check_btn');
-
-        if (checkBtn) checkBtn.disabled = true;
-        self._hide('_upd_selects');
-        self._hide('_upd_mirror_retry');
-        self._hide('_upd_log');
-        self._setStatus('_upd_status', _('Checking…'), '#888');
-
-        callGetUpstreamVersion(mirror, reltype, variant)
-            .then(function() {
-                self._pollStatus('check');
-            })
-            .catch(function(err) {
-                if (checkBtn) checkBtn.disabled = false;
-                self._setStatus('_upd_status',
-                    _('✗ Failed to start: %s').format(String(err)), '#dc3545');
-                self._show('_upd_mirror_retry', true);
-            });
-    },
-
-    // ── 执行更新 ─────────────────────────────────────────────
-    _doUpdate: function() {
-        var self   = this;
-        var tag    = (self._el('_upd_tag')    || {}).value || '';
-        var fname  = (self._el('_upd_file')   || {}).value || '';
-        var doBtn  = self._el('_upd_do_btn');
-
-        if (!tag || !fname) {
-            self._setStatus('_upd_status',
-                _('✗ Please check upstream version first'), '#dc3545');
-            return;
+        var p = [];
+        if (t === 'upd') {
+            var m = uci.get('lucky', 'lucky', 'mirror') || 'github', r = uci.get('lucky', 'lucky', 'release_type') || 'stable', v = uci.get('lucky', 'lucky', 'variant') || 'lucky';
+            if (retry) { m = $('upd_rmir').value; r = $('upd_rrel').value; v = $('upd_rvar').value; }
+            p = [m, m==='r66666'?r:'', m==='r66666'?v:''];
         }
-
-        if (doBtn) doBtn.disabled = true;
-        self._hide('_upd_mirror_retry');
-        self._appendLog('_upd_log', _('Preparing download…'));
-        self._setStatus('_upd_status', _('Downloading…'), '#888');
-
-        callDoUpdate(tag, fname)
-            .then(function(r) {
-                if (!r || r.result !== 'ok') {
-                    if (doBtn) doBtn.disabled = false;
-                    self._setStatus('_upd_status',
-                        _('✗ Failed to start download'), '#dc3545');
-                    self._show('_upd_mirror_retry', true);
-                    return;
-                }
-                self._pollStatus('download');
-            })
-            .catch(function(err) {
-                if (doBtn) doBtn.disabled = false;
-                self._setStatus('_upd_status',
-                    _('✗ Error: %s').format(String(err)), '#dc3545');
-                self._show('_upd_mirror_retry', true);
-            });
-    },
-
-    // ── 轮询状态 ─────────────────────────────────────────────
-    _pollStatus: function(phase) {
-        var self     = this;
-        var checkBtn = self._el('_upd_check_btn');
-        var doBtn    = self._el('_upd_do_btn');
-        var dots     = 0;
-        var done     = false;
-        var timer    = null;
-        var timeout  = null;
-
-        function stopAll() {
-            done = true;
-            if (timer)   { clearInterval(timer);  timer   = null; }
-            if (timeout) { clearTimeout(timeout);  timeout = null; }
-        }
-
-        timer = setInterval(function() {
-            if (done) return;
-            dots++;
-            var dot = '.'.repeat(dots % 4 + 1);
-
-            callGetUpdateStatus().then(function(s) {
-                if (done || !s) return;
-
-                // 进行中
-                if (s.status === 'checking') {
-                    self._setStatus('_upd_status', _('Checking') + dot, '#888');
-                    return;
-                }
-                if (s.status === 'downloading') {
-                    if (s.log) self._appendLog('_upd_log', s.log);
-                    self._setStatus('_upd_status', _('Downloading') + dot, '#888');
-                    return;
-                }
-                if (s.status === 'installing') {
-                    if (s.log) self._appendLog('_upd_log', s.log);
-                    self._setStatus('_upd_status', _('Installing…'), '#888');
-                    return;
-                }
-
-                // 终态
-                stopAll();
-
-                if (s.status === 'ready') {
-                    // 查询完成，填充版本/文件下拉
-                    if (checkBtn) checkBtn.disabled = false;
-                    self._setStatus('_upd_status',
-                        _('✓ Found %d version(s)').format((s.releases || []).length),
-                        '#28a745');
-                    self._populateReleases(s.releases || []);
-                    self._show('_upd_selects', true);
-                    return;
-                }
-
-                if (s.status === 'done') {
-                    if (doBtn) doBtn.disabled = false;
-                    self._setStatus('_upd_status',
-                        _('✓ Update complete: %s').format(s.installed || ''), '#28a745');
-                    if (s.log) self._appendLog('_upd_log', s.log);
-                    // 刷新当前版本表格
-                    self._refreshCurrentInfo();
-                    return;
-                }
-
-                if (s.status === 'error') {
-                    if (checkBtn) checkBtn.disabled = false;
-                    if (doBtn)    doBtn.disabled    = false;
-                    self._setStatus('_upd_status',
-                        _('✗ %s').format(s.msg || _('Unknown error')), '#dc3545');
-                    if (s.log) self._appendLog('_upd_log', s.log);
-                    self._show('_upd_mirror_retry', true);
-                    return;
-                }
-
-            }).catch(function() {});
-        }, 1500);
-
-        // 超时保护
-        var ms = phase === 'check' ? 60000 : 600000;
-        timeout = setTimeout(function() {
-            if (done) return;
-            stopAll();
-            if (checkBtn) checkBtn.disabled = false;
-            if (doBtn)    doBtn.disabled    = false;
-            self._setStatus('_upd_status', _('✗ Timeout, please retry'), '#dc3545');
-            self._show('_upd_mirror_retry', true);
-        }, ms);
-    },
-
-    // ── 填充版本/文件下拉 ────────────────────────────────────
-    _populateReleases: function(releases) {
-        var self    = this;
-        var tagSel  = self._el('_upd_tag');
-        var fileSel = self._el('_upd_file');
-        if (!tagSel || !fileSel) return;
-
-        self._releases = releases;
-        tagSel.innerHTML = '';
-        releases.forEach(function(r) {
-            tagSel.appendChild(E('option', { value: r.tag }, r.tag));
-        });
-
-        function updateFiles() {
-            var tag = tagSel.value;
-            var rel = null;
-            for (var i = 0; i < releases.length; i++) {
-                if (releases[i].tag === tag) { rel = releases[i]; break; }
+        
+        L.resolveDefault(api[t+'Chk'].apply(null, p), {}).then(res => {
+            if (!res || res.result === 'error') {
+                if(btn) btn.disabled = false;
+                txt(t+'_stat', _('✗ Failed to start check'), '#dc3545');
+                if (t === 'upd') vis('upd_retry', true, 'flex');
+            } else {
+                self._poll(t);
             }
-            fileSel.innerHTML = '';
-            if (!rel || !rel.filenames) return;
-
-            // 读取用户在 config.js 里设置的架构
-            var arch    = uci.get('lucky', 'lucky', 'arch') || '';
-            var matched = -1;
-            rel.filenames.forEach(function(fname, idx) {
-                fileSel.appendChild(E('option', { value: fname }, fname));
-                if (matched < 0 && arch && fname.indexOf(arch) !== -1)
-                    matched = idx;
-            });
-            if (matched >= 0) fileSel.selectedIndex = matched;
-        }
-
-        tagSel.onchange = updateFiles;
-        updateFiles();
-    },
-
-    // ── 刷新当前版本表格 ─────────────────────────────────────
-    _refreshCurrentInfo: function() {
-        var self = this;
-        L.resolveDefault(callGetSystemInfo(), {}).then(function(sys) {
-            self._sysinfo = sys;
-            [
-                ['_lucky_cur_version',  sys.version],
-                ['_lucky_cur_variant',  sys.variant],
-                ['_lucky_cur_arch',     sys.arch]
-            ].forEach(function(pair) {
-                var el = self._el(pair[0]);
-                if (el) el.textContent = pair[1] || _('Unknown');
-            });
         });
     },
 
-    // ── 读取自动更新日志 ─────────────────────────────────────
-    _loadAutoUpdateLog: function(logEl) {
-        var self = this;
-        self._setStatus('_auto_log_status', _('Loading…'), '#888');
+    _do: function(t) {
+        var tag = ($(t+'_tag')||{}).value, fn = ($(t+'_file')||{}).value, btn = $(t+'_do');
+        if (!tag || !fn) return txt(t+'_stat', _('✗ Please select version and file'), '#dc3545');
+        if (btn) btn.disabled = true;
+        log(t+'_log', _('Preparing…')); txt(t+'_stat', _('Starting…'), '#888');
+        L.resolveDefault(api[t+'Do'](tag, fn), {}).then(res => {
+            res && res.result === 'ok' ? this._poll(t) : (btn.disabled = false, txt(t+'_stat', _('✗ Failed'), '#dc3545'));
+        });
+    },
 
-        callGetAutoUpdateLog().then(function(res) {
-            var content = (res && res.log) ? res.log : _('(No log available)');
-            self._appendLog(logEl, content);
-            self._setStatus('_auto_log_status', '', '#888');
-        }).catch(function(err) {
-            self._setStatus('_auto_log_status',
-                _('✗ Failed to load log: %s').format(String(err)), '#dc3545');
+    _poll: function(t) {
+        var self = this, tk = t+'_tm', dots = 0;
+        if (self[tk]) clearInterval(self[tk]);
+        self[tk] = setInterval(function() {
+            dots = (dots % 4) + 1; var dot = '.'.repeat(dots);
+            api[t+'Stat']().then(function(s) {
+                if (!s) return;
+                var st = t+'_stat', lg = t+'_log';
+                switch (s.status) {
+                    case 'checking': txt(st, _('Checking') + dot); break;
+                    case 'downloading': txt(st, _('Downloading') + dot); log(lg, s.log); break;
+                    case 'installing': txt(st, _('Installing...'), '#f0ad4e'); log(lg, s.log); break;
+                    case 'ready':
+                        clearInterval(self[tk]); $(t+'_chk').disabled = false;
+                        txt(st, _('✓ Found %d version(s)').format(s.count || 0), '#28a745');
+                        if (s.releases) {
+                            self['_R'+t] = s.releases;
+                            var ts = $(t+'_tag'); ts.innerHTML = '';
+                            s.releases.forEach(r => ts.appendChild(E('option', { value: r.tag }, r.tag)));
+                            self._sel(t); vis(t+'_sels', true);
+                        }
+                        break;
+                    case 'done':
+                        clearInterval(self[tk]); $(t+'_chk').disabled = false; $(t+'_do').disabled = false;
+                        log(lg, s.log); txt(st, _('✓ Complete: %s').format(s.installed || ''), '#28a745');
+                        self._info(); break;
+                    case 'error':
+                        clearInterval(self[tk]); $(t+'_chk').disabled = false; $(t+'_do').disabled = false;
+                        log(lg, s.log); txt(st, _('✗ %s').format(s.msg || _('Error')), '#dc3545');
+                        if (t === 'upd') vis('upd_retry', true, 'flex');
+                        break;
+                }
+            });
+        }, 1000);
+    },
+
+    _sel: function(t) {
+        var rels = this['_R'+t] || [], tv = ($(t+'_tag')||{}).value, fs = $(t+'_file');
+        if (!tv || !fs) return;
+        var r = rels.find(x => x.tag === tv);
+        fs.innerHTML = '';
+        if (!r || !r.files) return;
+        var b = 0;
+        r.files.forEach((f, i) => {
+            fs.appendChild(E('option', { value: f.name }, f.name));
+            if (f.name === r.best) b = i;
+        });
+        fs.selectedIndex = b;
+    },
+
+    _info: function() {
+        L.resolveDefault(api.info(), {}).then(sys => {
+            if (!sys) return;
+            var m = { iv: sys.version, il: sys.luci_version, ir: sys.variant, ia: sys.arch, ip: sys.binpath, ic: sys.configdir };
+            for (var k in m) txt(k, m[k] || _('Unknown'), '');
         });
     }
 });
