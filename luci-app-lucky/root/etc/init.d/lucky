@@ -10,60 +10,54 @@ CRON_FILE=/etc/crontabs/root
 CRON_TAG=luci-app-lucky-autoupdate
 UPDATE_SCRIPT=/usr/libexec/lucky-update.sh
 
-# ─── 日志 ────────────────────────────────────────────────────
 log_msg() {
     logger -t lucky -p daemon.info "$1"
 }
 
-# ─── 定时任务管理 ─────────────────────────────────────────────
-setup_cron() {
-    local auto_update interval new_entry
+sync_cron() {
+    local auto_update interval new_entry current_entry
     auto_update=$(uci -q get $CONF.$CONF.auto_update)  || auto_update="0"
     interval=$(uci -q get $CONF.$CONF.update_interval) || interval="7"
-
-    # 删除旧条目
-    sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
-
-    # 启用时写入新条目
-    [ "$auto_update" = "1" ] && {
+    current_entry=$(grep "${CRON_TAG}" "$CRON_FILE" 2>/dev/null || true)
+    if [ "$auto_update" = "1" ]; then
         new_entry="0 3 */${interval} * * $UPDATE_SCRIPT auto >> /var/log/lucky-autoupdate.log 2>&1 #${CRON_TAG}"
+        [ "$current_entry" = "$new_entry" ] && return 0
+        sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
         echo "$new_entry" >> "$CRON_FILE"
-        log_msg "Auto update cron set: every ${interval} day(s)"
-    }
+        log_msg "Auto update cron updated: every ${interval} day(s)"
+    else
+        [ -z "$current_entry" ] && return 0
+        sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
+        log_msg "Auto update cron removed."
+    fi
 
     /etc/init.d/cron restart 2>/dev/null || true
 }
 
-# ─── 启动实例 ─────────────────────────────────────────────────
-start_instance() {
+start_service() {
     local enabled port safe delay binpath configdir
-
     enabled=$(uci -q get $CONF.$CONF.enabled)     || enabled="0"
     port=$(uci -q get $CONF.$CONF.port)           || port="16601"
     safe=$(uci -q get $CONF.$CONF.safe)           || safe=""
     delay=$(uci -q get $CONF.$CONF.delay)         || delay="60"
     binpath=$(uci -q get $CONF.$CONF.binpath)     || binpath="$PROG"
     configdir=$(uci -q get $CONF.$CONF.configdir) || configdir="$CONFDIR"
-
     [ "$enabled" = "1" ] || {
         log_msg "Lucky is disabled, skipping start."
+        return 0
+    }
+    [ -x "$binpath" ] || {
+        log_msg "Lucky binary not found or not executable: $binpath"
         return 1
     }
-
-    # 确保数据目录存在
     [ -d "$configdir" ] || mkdir -p "$configdir" 2>/dev/null
-
-    # 开机后 uptime < 120s 时才延迟启动
     [ "$(awk -F. '{print $1}' /proc/uptime)" -lt 120 ] && {
         log_msg "Delaying start by ${delay}s ..."
         sleep "$delay"
     }
-
-    # 写入端口配置
     "$binpath" -setconf -key AdminWebListenPort -value "$port" -cd "$configdir" \
         >/dev/null 2>&1
 
-    # 写入安全入口配置
     safe="$(echo "$safe" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     if [ -z "$safe" ]; then
         "$binpath" -rCancelSafeURL -cd "$configdir" >/dev/null 2>&1
@@ -82,21 +76,14 @@ start_instance() {
     log_msg "Lucky started (port=${port} configdir=${configdir})"
 }
 
-# ─── procd 入口 ───────────────────────────────────────────────
-start_service() {
-    start_instance
-    setup_cron
-}
-
 stop_service() {
     log_msg "Lucky stopped."
 }
 
-# UCI 配置变更后由 procd 触发：重启服务 + 刷新定时任务
 reload_service() {
     stop
     start
-    setup_cron
+    sync_cron
 }
 
 service_triggers() {
