@@ -7,6 +7,7 @@
                     "get_status",
                     "get_arch",
                     "get_system_info",
+                    "get_settings",
                     "get_update_status",
                     "get_auto_update_log"
                 ]
@@ -15,6 +16,7 @@
         "write": {
             "ubus": {
                 "luci.lucky": [
+                    "save_settings",
                     "reset_user",
                     "get_upstream_version",
                     "do_update"
