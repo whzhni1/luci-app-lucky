@@ -1,234 +1,118 @@
 #!/usr/bin/ucode
 'use strict';
 
-import { open, stat, readfile } from 'fs';
+import { readfile, stat, open, popen } from 'fs';
+import { cursor } from 'uci';
 
-// ─── 常量 ────────────────────────────────────────────────────
-const DEFAULTS = {
-    bin_path:        "/usr/bin/lucky",
-    config_dir:      "/etc/config/lucky.daji",
-    update_dir:      "/tmp/lucky_update",
-    update_script:   "/usr/libexec/lucky-update.sh",
-    auto_update_log: "/var/log/lucky-autoupdate.log",
-    init_script:     "/etc/init.d/lucky",
+const DIR = '/tmp/lucky_update';
+const SCRIPT = '/usr/libexec/lucky-update.sh';
+const ALOG = '/var/log/lucky-autoupdate.log';
+
+const SETTINGS = {
+    enabled: '0', port: '16601', safe: '', ssl: '0', delay: '60',
+    configdir: '/etc/config/lucky.daji', binpath: '/usr/bin/lucky',
+    arch: 'auto', mirror: 'github', release_type: 'stable', variant: 'lucky',
+    auto_update: '0', update_interval: '7'
 };
 
-// ─── 工具函数 ────────────────────────────────────────────────
-function trim(s) {
-    return s ? replace(s, /^\s+|\s+$/g, '') : '';
-}
+function sys(c) { let p = popen(c, 'r'); if (!p) return -1; p.read('all'); return p.close(); }
+function exec(c) { let p = popen(c, 'r'); let o = p ? p.read('all') : ''; if (p) p.close(); return trim(o ?? ''); }
+function read(p) { return readfile(p) ?? ''; }
+function exists(p) { return stat(p) != null; }
+function uf(n) { return `${DIR}/${n}`; }
+function uciGet(k) { let c = cursor(); c.load('lucky'); return c.get('lucky', 'lucky', k) ?? ''; }
 
-function fileExists(path) {
-    return stat(path) !== null;
-}
-
-function safeRead(path) {
-    let f = open(path, 'r');
-    if (!f) return '';
-    let c = f.read('all');
-    f.close();
-    return c || '';
-}
-
-function execOutput(cmd) {
-    let f = open(`${cmd} 2>/dev/null`, 'r', 'pipe');
-    if (!f) return '';
-    let out = f.read('all');
-    f.close();
-    return out || '';
-}
-
-// 读取 UCI 配置
-function uciGet(key) {
-    return trim(execOutput(`uci -q get lucky.lucky.${key}`));
-}
-
-// 更新状态/日志文件路径
-function updFile(type) {
-    return `${DEFAULTS.update_dir}/${type}`;
-}
-
-// 解析状态前缀，如 "ready:3" 返回 "3"，否则返回 null
-function statusPrefix(status, prefix) {
-    if (index(status, prefix) === 0)
-        return substr(status, length(prefix));
-    return null;
-}
-
-// 重置更新状态文件
-function resetUpdateState() {
-    if (!fileExists(DEFAULTS.update_dir))
-        system(`mkdir -p '${DEFAULTS.update_dir}'`);
-    let f = open(updFile('status'), 'w');
-    if (f) f.close();
-    let lf = open(updFile('log'), 'w');
-    if (lf) lf.close();
-}
-
-// ─── RPC 方法实现 ─────────────────────────────────────────────
-
-// 获取服务运行状态
-function cmdGetStatus() {
-    let out = trim(execOutput('pidof lucky'));
-    return { running: length(out) > 0 };
-}
-
-// 获取系统/Lucky 信息（供 update.js 版本表格使用）
-function cmdGetSystemInfo() {
-    let arch      = trim(execOutput('uname -m'));
-    let binpath   = uciGet('binpath')   || DEFAULTS.bin_path;
-    let configdir = uciGet('configdir') || DEFAULTS.config_dir;
-    let variant   = uciGet('variant')   || 'lucky';
-
-    // Lucky 版本：优先执行二进制 --version，fallback opkg/apk
-    let version = trim(execOutput(`'${binpath}' --version 2>/dev/null | head -1`));
-    if (!version) {
-        version =
-            trim(execOutput("apk list 2>/dev/null | grep '^lucky-' | awk '{print $1}' | sed 's/^lucky-//'")) ||
-            trim(execOutput("opkg list-installed 2>/dev/null | grep '^lucky ' | awk '{print $3}'")) ||
-            'Unknown';
-    }
-
-    return {
-        version,
-        variant,
-        arch,
-        binpath,
-        configdir,
-    };
-}
-
-// 获取设备架构（供 config.js 架构检测显示使用）
-function cmdGetArch() {
-    return { arch: trim(execOutput('uname -m')) };
-}
-
-// 重置用户名密码
-function cmdResetUser() {
-    let configdir = uciGet('configdir') || DEFAULTS.config_dir;
-    let binpath   = uciGet('binpath')   || DEFAULTS.bin_path;
-    let code = system(`'${binpath}' -rResetUser -cd '${configdir}' >/dev/null 2>&1`);
-    return { result: code === 0 };
-}
-
-// 触发上游版本查询（异步，结果由 get_update_status 轮询）
-function cmdGetUpstreamVersion(args) {
-    let mirror      = args.mirror       || uciGet('mirror')       || 'github';
-    let release_type= args.release_type || uciGet('release_type') || 'stable';
-    let variant     = args.variant      || uciGet('variant')      || 'lucky';
-
-    resetUpdateState();
-
-    // 写入 checking 状态，后台执行脚本
-    let sf = open(updFile('status'), 'w');
-    if (sf) { sf.write('checking'); sf.close(); }
-
-    system(
-        `setsid '${DEFAULTS.update_script}' check` +
-        ` '${mirror}' '${release_type}' '${variant}'` +
-        ` >> '${updFile("log")}' 2>&1 &`
-    );
-
+function runTask(prefix, state, args) {
+    sys(`mkdir -p '${DIR}' && rm -f '${uf(prefix+'status')}' '${uf(prefix+'log')}'`);
+    let f = open(uf(prefix+'status'), 'w');
+    if (f) { f.write(state); f.close(); }
+    sys(`setsid '${SCRIPT}' ${args} >/dev/null 2>&1 &`);
     return { result: 'ok' };
 }
 
-// 触发下载安装（异步，结果由 get_update_status 轮询）
-function cmdDoUpdate(args) {
-    let tag      = args.tag      || '';
-    let filename = args.filename || '';
-    let binpath  = uciGet('binpath')   || DEFAULTS.bin_path;
-    let confdir  = uciGet('configdir') || DEFAULTS.config_dir;
+function getTaskStatus(prefix, doneTag) {
+    let sf = uf(prefix+'status'), lf = uf(prefix+'log'), rf = uf(prefix+'releases.json');
+    if (!exists(sf)) return { status: 'idle' };
 
-    if (!tag || !filename) return { result: 'error', msg: 'missing tag or filename' };
+    let st = trim(read(sf));
+    let log = exists(lf) ? exec(`tail -n 40 '${lf}' 2>/dev/null`) : '';
 
-    resetUpdateState();
+    if (st == 'checking' || st == 'downloading' || st == 'installing') return { status: st, log: log };
 
-    let sf = open(updFile('status'), 'w');
-    if (sf) { sf.write('downloading'); sf.close(); }
-
-    system(
-        `setsid '${DEFAULTS.update_script}' download` +
-        ` '${tag}' '${filename}' '${binpath}' '${confdir}'` +
-        ` >> '${updFile("log")}' 2>&1 &`
-    );
-
-    return { result: 'ok' };
-}
-
-// 轮询更新状态
-function cmdGetUpdateStatus() {
-    let statusF = updFile('status');
-    let logF    = updFile('log');
-    let slimF   = updFile('releases.json');
-
-    if (!fileExists(statusF)) return { status: 'idle' };
-
-    let status  = trim(safeRead(statusF));
-    let logTail = fileExists(logF)
-        ? trim(execOutput(`tail -n 40 '${logF}'`))
-        : '';
-
-    // 进行中状态
-    if (status === 'checking' || status === 'downloading' || status === 'installing')
-        return { status, log: logTail };
-
-    // ready:N — 查询完成
-    let readyVal = statusPrefix(status, 'ready:');
-    if (readyVal !== null) {
-        let releases = null;
-        if (fileExists(slimF)) {
-            let raw = safeRead(slimF);
-            try { releases = json(raw); } catch(e) { releases = null; }
-        }
-        return { status: 'ready', count: int(readyVal), releases, log: logTail };
+    if (substr(st, 0, 6) == 'ready:') {
+        let rel = null;
+        try { rel = json(read(rf)); } catch(e) {}
+        return { status: 'ready', count: int(substr(st, 6)), releases: rel, log: log };
     }
 
-    // done:VERSION — 安装完成
-    let doneVal = statusPrefix(status, 'done:');
-    if (doneVal !== null)
-        return { status: 'done', installed: doneVal, log: logTail };
-
-    // error:MSG — 出错
-    let errorVal = statusPrefix(status, 'error:');
-    if (errorVal !== null)
-        return { status: 'error', msg: errorVal, log: logTail };
+    let dLen = length(doneTag);
+    if (substr(st, 0, dLen) == doneTag) return { status: 'done', installed: substr(st, dLen), log: log };
+    if (substr(st, 0, 6) == 'error:') return { status: 'error', msg: substr(st, 6), log: log };
 
     return { status: 'idle' };
 }
 
-// 读取自动更新日志
-function cmdGetAutoUpdateLog() {
-    let logPath = DEFAULTS.auto_update_log;
-    if (!fileExists(logPath)) return { log: '' };
-    let content = trim(execOutput(`tail -n 200 '${logPath}'`));
-    return { log: content };
-}
+const api = {
+    get_status: () => ({ running: length(exec('pidof lucky 2>/dev/null')) > 0 }),
+    get_arch: () => ({ arch: exec(`${SCRIPT} detect_arch 2>/dev/null`) }),
+    get_system_info: () => {
+        let bin = uciGet('binpath') || SETTINGS.binpath;
+        return {
+            version: exec(`'${bin}' version 2>/dev/null | grep -iE 'version[^0-9]*[0-9]' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -1`) || 'Unknown',
+            luci_version: exec(`command -v apk >/dev/null 2>&1 && apk info luci-app-lucky 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -1 || opkg info luci-app-lucky 2>/dev/null | grep '^Version:' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -1`) || 'Unknown',
+            variant: uciGet('variant') || 'lucky',
+            arch: exec(`${SCRIPT} detect_arch 2>/dev/null`),
+            binpath: bin,
+            configdir: uciGet('configdir') || SETTINGS.configdir
+        };
+    },
+    get_settings: () => {
+        let u = cursor(), r = {}; u.load('lucky');
+        for (let k in SETTINGS) r[k] = u.get('lucky', 'lucky', k) || SETTINGS[k];
+        return r;
+    },
+    save_settings: (a) => {
+        let u = cursor(); u.load('lucky');
+        for (let k in SETTINGS) u.set('lucky', 'lucky', k, a[k] ?? SETTINGS[k]);
+        u.commit('lucky');
+        sys(`setsid /etc/init.d/lucky reload >/dev/null 2>&1 &`);
+        return { result: 'ok' };
+    },
+    reset_user: () => {
+        let bin = uciGet('binpath') || SETTINGS.binpath, cfg = uciGet('configdir') || SETTINGS.configdir;
+        return { result: sys(`'${bin}' -rResetUser -cd '${cfg}' >/dev/null 2>&1`) === 0 };
+    },
+    get_upstream_version: (a) => runTask('', 'checking', `check '${a.mirror || uciGet('mirror') || 'github'}' '${a.release_type || uciGet('release_type') || 'stable'}' '${a.variant || uciGet('variant') || 'lucky'}'`),
+    do_update: (a) => (a.tag && a.filename) ? runTask('', 'downloading', `download '${a.tag}' '${a.filename}' '${uciGet('binpath') || SETTINGS.binpath}'`) : { result: 'error' },
+    get_update_status: () => getTaskStatus('', 'done:'),
+    check_luci: () => runTask('luci_', 'checking', `check_luci`),
+    do_update_luci: (a) => (a.tag && a.filename) ? runTask('luci_', 'downloading', `download_luci '${a.tag}' '${a.filename}'`) : { result: 'error' },
+    get_luci_update_status: () => getTaskStatus('luci_', 'luci_done:'),
+    get_auto_update_log: () => ({ log: exists(ALOG) ? exec(`tail -n 200 '${ALOG}' 2>/dev/null`) : '' })
+};
 
-// ─── RPC 分发 ─────────────────────────────────────────────────
-let method = ARGV[0] ?? '';
-let args   = {};
+const SIGS = {
+    get_status: {}, get_arch: {}, get_system_info: {}, get_settings: {},
+    reset_user: {}, get_update_status: {}, check_luci: {},
+    get_luci_update_status: {}, get_auto_update_log: {}, save_settings: {},
+    get_upstream_version: { mirror: 'String', release_type: 'String', variant: 'String' },
+    do_update: { tag: 'String', filename: 'String' },
+    do_update_luci: { tag: 'String', filename: 'String' }
+};
 
-// 从 stdin 读取 JSON 参数
-try {
-    let raw = open('/dev/stdin', 'r');
-    if (raw) {
-        let body = raw.read('all');
-        raw.close();
-        if (body && length(trim(body)) > 0)
-            args = json(body) ?? {};
+for (let k in SETTINGS) SIGS.save_settings[k] = 'String';
+
+if (ARGV[0] === 'list') {
+    print(sprintf('%J\n', SIGS));
+} else if (ARGV[0] === 'call') {
+    let fn = api[ARGV[1]];
+    if (!fn) {
+        print('{"error":"Unknown method"}\n');
+    } else {
+        let input = json(read('/dev/stdin') ?? '{}') ?? {};
+        try { print(sprintf('%J\n', fn(input))); }
+        catch(e) { print(sprintf('{"error":"%s"}\n', e)); }
     }
-} catch(e) {}
-
-let result = {};
-
-if      (method === 'get_status')           result = cmdGetStatus();
-else if (method === 'get_system_info')      result = cmdGetSystemInfo();
-else if (method === 'get_arch')             result = cmdGetArch();
-else if (method === 'reset_user')           result = cmdResetUser();
-else if (method === 'get_upstream_version') result = cmdGetUpstreamVersion(args);
-else if (method === 'do_update')            result = cmdDoUpdate(args);
-else if (method === 'get_update_status')    result = cmdGetUpdateStatus();
-else if (method === 'get_auto_update_log')  result = cmdGetAutoUpdateLog();
-else result = { error: 'unknown method' };
-
-print(result);
+} else {
+    exit(1);
+}
