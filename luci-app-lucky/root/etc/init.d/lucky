@@ -14,18 +14,24 @@ log_msg() {
     logger -t lucky -p daemon.info "$1"
 }
 
+# 仅在 reload 时调用，且只有 cron 配置实际变化时才重写
 sync_cron() {
     local auto_update interval new_entry current_entry
+
     auto_update=$(uci -q get $CONF.$CONF.auto_update)  || auto_update="0"
     interval=$(uci -q get $CONF.$CONF.update_interval) || interval="7"
+
     current_entry=$(grep "${CRON_TAG}" "$CRON_FILE" 2>/dev/null || true)
+
     if [ "$auto_update" = "1" ]; then
         new_entry="0 3 */${interval} * * $UPDATE_SCRIPT auto >> /var/log/lucky-autoupdate.log 2>&1 #${CRON_TAG}"
+        # 与现有条目完全一致则跳过，避免重置计时
         [ "$current_entry" = "$new_entry" ] && return 0
         sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
         echo "$new_entry" >> "$CRON_FILE"
         log_msg "Auto update cron updated: every ${interval} day(s)"
     else
+        # 关闭自动更新时才删除，没有就跳过
         [ -z "$current_entry" ] && return 0
         sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
         log_msg "Auto update cron removed."
@@ -36,25 +42,35 @@ sync_cron() {
 
 start_service() {
     local enabled port safe delay binpath configdir
+
     enabled=$(uci -q get $CONF.$CONF.enabled)     || enabled="0"
     port=$(uci -q get $CONF.$CONF.port)           || port="16601"
     safe=$(uci -q get $CONF.$CONF.safe)           || safe=""
     delay=$(uci -q get $CONF.$CONF.delay)         || delay="60"
     binpath=$(uci -q get $CONF.$CONF.binpath)     || binpath="$PROG"
     configdir=$(uci -q get $CONF.$CONF.configdir) || configdir="$CONFDIR"
+
     [ "$enabled" = "1" ] || {
         log_msg "Lucky is disabled, skipping start."
         return 0
     }
+
     [ -x "$binpath" ] || {
-        log_msg "Lucky binary not found or not executable: $binpath"
-        return 1
+        [ -x "$UPDATE_SCRIPT" ] && ! [ -f /tmp/lucky_downloading ] && {
+            touch /tmp/lucky_downloading
+            log_msg "Lucky binary not found, starting automatic download..."
+            setsid sh -c "$UPDATE_SCRIPT > /dev/null 2>&1; rm -f /tmp/lucky_downloading" &
+        }
+        return 0
     }
+
     [ -d "$configdir" ] || mkdir -p "$configdir" 2>/dev/null
+
     [ "$(awk -F. '{print $1}' /proc/uptime)" -lt 120 ] && {
         log_msg "Delaying start by ${delay}s ..."
         sleep "$delay"
     }
+
     "$binpath" -setconf -key AdminWebListenPort -value "$port" -cd "$configdir" \
         >/dev/null 2>&1
 
