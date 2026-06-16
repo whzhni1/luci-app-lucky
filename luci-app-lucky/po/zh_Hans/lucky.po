@@ -173,8 +173,8 @@ msgstr "标准版（lucky）"
 msgid "Full-featured (wanji)"
 msgstr "完整版（wanji）"
 
-msgid "Auto Update"
-msgstr "自动更新"
+msgid "Auto update:"
+msgstr "自动更新："
 
 msgid "Enable Auto Update"
 msgstr "启用自动更新"
@@ -384,8 +384,8 @@ msgstr "已选子目录："
 msgid "Files found:"
 msgstr "找到文件："
 
-msgid "Releases found"
-msgstr "找到版本数"
+msgid "Releases found:"
+msgstr "找到版本数："
 
 msgid "No Lucky releases found"
 msgstr "未找到 Lucky 发布版本"
@@ -417,8 +417,11 @@ msgstr "未找到包管理器"
 msgid "LuCI:"
 msgstr "LuCI："
 
-msgid "Downloading..."
-msgstr "正在下载..."
+msgid "Downloading:"
+msgstr "正在下载："
+
+msgid "From:"
+msgstr "来源："
 
 msgid "Download failed"
 msgstr "下载失败"
@@ -426,8 +429,8 @@ msgstr "下载失败"
 msgid "Downloaded file is empty"
 msgstr "下载的文件为空"
 
-msgid "Download complete"
-msgstr "下载完成"
+msgid "Download complete:"
+msgstr "下载完成："
 
 msgid "Download URL not found"
 msgstr "未找到下载链接"
@@ -474,8 +477,8 @@ msgstr "LuCI 插件包安装失败"
 msgid "Detected language:"
 msgstr "检测到语言："
 
-msgid "Looking for language pack..."
-msgstr "正在查找语言包..."
+msgid "Looking for language pack:"
+msgstr "正在查找语言包："
 
 msgid "Installing language pack:"
 msgstr "正在安装语言包："
@@ -501,8 +504,8 @@ msgstr "自动更新完成"
 msgid "Current Lucky version:"
 msgstr "当前 Lucky 版本："
 
-msgid "Lucky binary not found, will force download"
-msgstr "未找到 Lucky 程序，将强制下载"
+msgid "Lucky binary not found, auto download"
+msgstr "未找到 Lucky 程序，开始自动下载"
 
 msgid "No releases file after check"
 msgstr "检查后未生成版本文件"
@@ -529,7 +532,7 @@ msgid "Current LuCI version:"
 msgstr "当前 LuCI 版本："
 
 msgid "Latest:"
-msgstr "最新："
+msgstr "最新版本："
 
 msgid "auto download..."
 msgstr "正在自动下载..."
