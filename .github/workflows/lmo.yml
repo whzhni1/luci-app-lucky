@@ -1,0 +1,28 @@
+name: Build lmo with po2lmo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-lmo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build essentials
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Build po2lmo
+        run: |
+          git clone https://github.com/openwrt-dev/po2lmo.git
+          cd po2lmo
+          make
+
+      - name: Compile lmo
+        run: |
+          ./po2lmo/src/po2lmo luci-app-lucky/po/zh_Hans/lucky.po lucky.zh-cn.lmo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lucky-lmo
+          path: lucky.zh-cn.lmo
