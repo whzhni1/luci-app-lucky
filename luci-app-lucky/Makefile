@@ -22,10 +22,6 @@ define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
 INITD=/etc/init.d
-if [ "$$(uci -q get lucky.lucky.arch)" = "auto" ]; then
-    uci set lucky.lucky.arch="$$(uname -m)"
-    uci commit lucky
-fi
 $${INITD}/lucky enable
 (sleep 3
  $${INITD}/rpcd restart
