@@ -35,9 +35,9 @@ jobs:
         with:
           path: ipks
           merge-multiple: true
-     # - uses: softprops/action-gh-release@v2
-        #with:
-          #tag_name: ${{ steps.ver.outputs.tag }}
-        #  name: luci-app-lucky ${{ steps.ver.outputs.tag }}
-        #  files: ipks/*
-        #  make_latest: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: luci-app-lucky ${{ steps.ver.outputs.tag }}
+          files: ipks/*
+          make_latest: true
