@@ -9,6 +9,7 @@
                     "get_system_info",
                     "get_settings",
                     "get_update_status",
+                    "get_luci_update_status",
                     "get_auto_update_log"
                 ]
             }
@@ -19,7 +20,11 @@
                     "save_settings",
                     "reset_user",
                     "get_upstream_version",
-                    "do_update"
+                    "do_update",
+                    "check_luci",
+                    "do_update_luci",
+                    "run_update",
+                    "clean_update"
                 ]
             }
         }
