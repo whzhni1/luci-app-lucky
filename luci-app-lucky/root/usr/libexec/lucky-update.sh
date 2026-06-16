@@ -41,7 +41,6 @@ _http_cmd() {
     fi
 }
 
-# http_get url outfile [timeout=60]
 http_get() {
     local url="$1" out="$2" t="${3:-60}"
     case "$(_http_cmd)" in
@@ -143,7 +142,7 @@ fetch_api_lines() {
         | sed 's/": "/":"/g; s/": /:/g' \
         | grep -oE '"tag_name":"[^"]*"|https://[^"]*'"${ext}" \
         > "$out"
-    log "Extracted $(wc -l < "$out" | tr -d ' ') lines"
+    log "Extracted: $(wc -l < "$out" | tr -d ' ')"
 }
 
 parse_release_lines() {
@@ -257,7 +256,7 @@ fetch_luci_releases() {
         [ -z "$api" ] && continue
         log "Trying luci API: $api"
         raw=$(http_get_var "$api" 15)
-        echo "$raw" | grep -q '"tag_name"' && { log "OK: $api"; break; }
+        echo "$raw" | grep -q '"tag_name"' && { log "Got response from: $api"; break; }
         log "WARN: No response from $api"; raw=""
     done << EOF
 $LUCI_APIS
@@ -320,7 +319,7 @@ cmd_check() {
 
     local count; count=$(check_releases_count "$releases_json" "lucky" "")
     printf '%s\n' "$releases_json" > "$RELEASES_FILE"
-    log "Found $count release(s)"
+    log "Found releases: $count"
     write_status "" "ready:$count"
 }
 
@@ -331,7 +330,7 @@ cmd_check_luci() {
     write_status "luci" "checking"
     local json; json=$(fetch_luci_releases "$pm" 5)
     local count; count=$(check_releases_count "$json" "luci" "luci")
-    log "Luci: $count release(s)"
+    log "Luci: $count"
     write_status "luci" "ready:$count"
 }
 
@@ -342,11 +341,12 @@ do_download() {
 
     init_dir
     write_status "$prefix" "downloading:$tag"
-    log "Downloading $filename from: $url"
+    log "Downloading: $filename"
+    log "From: $url"
     local f="$UPDATE_DIR/$filename"
     http_get "$url" "$f" || die "$prefix" "Download failed: $url"
     [ -s "$f" ]          || die "$prefix" "Downloaded file empty"
-    log "Downloaded ($(du -sh "$f" 2>/dev/null | cut -f1))"
+    log "Download complete: $(du -sh "$f" 2>/dev/null | cut -f1)"
     echo "$f"
 }
 
@@ -360,6 +360,7 @@ cmd_download() {
 
     local xdir="$UPDATE_DIR/extract"
     rm -rf "$xdir" && mkdir -p "$xdir"
+    log "Extracting..."
     case "$filename" in
         *.tar.gz|*.tgz) tar -xzf "$dl" -C "$xdir" 2>/dev/null \
                              || die "" "Extract failed: $filename" ;;
@@ -368,11 +369,13 @@ cmd_download() {
 
     local bin; bin=$(find "$xdir" -type f -name "lucky" | head -1)
     [ -z "$bin" ] && die "" "Binary 'lucky' not found in archive"
+    log "Found binary: $bin"
 
     mkdir -p "$(dirname "$binpath")"
     log "Stopping service..."
     /etc/init.d/lucky stop 2>/dev/null; sleep 1
 
+    log "Installing: $binpath"
     cp "$bin" "$binpath" && chmod 755 "$binpath" || die "" "Failed to install $binpath"
     rm -rf "$xdir" "$dl"
 
@@ -380,7 +383,7 @@ cmd_download() {
     /etc/init.d/lucky start 2>/dev/null
     local ver; ver=$(tag_to_ver "$tag")
     save_installed_version "${ver:-$tag}"
-    log "Installed: ${ver:-$tag}"
+    log "Installation complete: ${ver:-$tag}"
     write_status "" "done:${ver:-$tag}"
 }
 
@@ -394,19 +397,23 @@ cmd_download_luci() {
 
     local dl; dl=$(do_download "$LUCI_RELEASES_FILE" "$tag" "$filename" "luci")
     write_status "luci" "installing_luci:$tag"
+    log "Installing luci package..."
     install_luci_pkg "$pm" "$dl" || die "luci" "Install failed"
     rm -f "$dl"
 
     local lang; lang=$(detect_lang)
+    log "Detected language: ${lang:-none}"
     if [ -n "$lang" ] && [ "$lang" != "en" ] && [ -f "$LUCI_RELEASES_FILE" ]; then
+        log "looking for i18n package: $lang"
         local lf lu
         lf=$(grep -o "\"name\":\"[^\"]*i18n[^\"]*${lang}[^\"]*\"" "$LUCI_RELEASES_FILE" \
              | cut -d'"' -f4 | head -1)
         lu=$([ -n "$lf" ] && extract_url_from_releases "$LUCI_RELEASES_FILE" "$lf")
         if [ -n "$lu" ]; then
+            log "Installing language pack: $lf"
             local ldl="$UPDATE_DIR/$lf"
             http_get "$lu" "$ldl" && install_luci_pkg "$pm" "$ldl" \
-                && log "Lang pack installed: $lf" \
+                && log "Language pack installed: $lf" \
                 || log "WARN: Lang pack failed"
             rm -f "$ldl"
         fi
@@ -419,7 +426,7 @@ cmd_download_luci() {
 maybe_update() {
     local cur="$1" latest="$2" label="$3"
     if [ -n "$cur" ] && [ -n "$latest" ] && ! version_lt "$cur" "$latest"; then
-        log "$label up to date ($cur), skipping."
+        log "$label up to date ($cur)"
         return 1
     fi
 }
@@ -433,14 +440,14 @@ cmd_auto() {
     binpath=$(uci_get binpath /usr/bin/lucky)
 
     init_dir
-    log "=== Auto update: mirror=$mirror type=$release_type variant=$variant arch=$arch ==="
+    log "Auto update: mirror=$mirror type=$release_type variant=$variant arch=$arch"
 
     local cur_ver=""
     if [ -x "$binpath" ]; then
         cur_ver=$(get_installed_version)
         log "Current lucky: ${cur_ver:-unknown}"
     else
-        log "Lucky binary not found, forcing download"
+        log "Lucky binary not found, auto download"
     fi
 
     cmd_check "$mirror" "$release_type" "$variant" "$arch"
@@ -461,15 +468,17 @@ cmd_auto() {
     local luci_json; luci_json=$(fetch_luci_releases "$pm" 5)
     [ -z "$luci_json" ] || [ "$luci_json" = "[]" ] && { log "WARN: No luci releases"; return; }
 
-    local luci_tag luci_file
+    local luci_tag luci_file luci_cur
     luci_tag=$(parse_first_field "tag"  "$LUCI_RELEASES_FILE")
     luci_file=$(parse_first_field "best" "$LUCI_RELEASES_FILE")
-    log "Luci current: $(get_luci_version "$pm")  Latest: $luci_tag"
+    luci_cur=$(get_luci_version "$pm")
+    log "Luci current: ${luci_cur:-unknown}"
+    log "Latest: $luci_tag"
 
-    maybe_update "$(get_luci_version "$pm")" "$(tag_to_ver "$luci_tag")" "Luci" \
+    maybe_update "$luci_cur" "$(tag_to_ver "$luci_tag")" "Luci" \
         && cmd_download_luci "$luci_tag" "$luci_file"
 
-    log "=== Auto update complete ==="
+    log "Auto update complete"
 }
 
 case "$1" in

@@ -141,7 +141,7 @@ return view.extend({
         var content = E('div', { class: 'cbi-map' }, [
             E('h2', {}, _('Lucky — Download & Update')),
             infoBlock(),
-            buildSection('upd',  _('Lucky Binary Update'), _('Check Upstream'),    self, mirrorExt),
+            buildSection('upd',  _('Lucky kernel Update'), _('Check Upstream'),    self, mirrorExt),
             buildSection('luci', _('Luci App Update'),     _('Check Luci Version'), self),
             E('div', { class: 'cbi-section' }, [
                 E('h3', {}, _('Auto Update Log')),
@@ -170,7 +170,7 @@ return view.extend({
                                 ok ? _('Cache cleared.') : _('Clear failed.')
                             ), ok ? 'info' : 'error');
                         });
-                    }}, _('Clear Cache'))
+                    }}, _('Clear log'))
                 ]),
                 E('pre', { id: 'auto_log', style: LOG_STYLE })
             ])
@@ -238,7 +238,10 @@ return view.extend({
                     case 'error':
                         clearInterval(self[tk]);
                         $(t + '_chk').disabled = false;
-                        txt(t + '_stat', _('✗ %s').format(s.msg || _('Error')), '#dc3545');
+                        txt(t + '_stat',
+                            _('✗ %s').format(lucky_log.translate(s.msg || _('Error'))),
+                            '#dc3545'
+                        );
                         if (t === 'upd') vis('upd_retry', true, 'flex');
                         break;
                 }
@@ -300,7 +303,10 @@ return view.extend({
                         clearInterval(self[tk]);
                         $(t + '_chk').disabled = false;
                         $(t + '_do').disabled  = false;
-                        txt(t + '_stat', _('✗ %s').format(s.msg || _('Error')), '#dc3545');
+                        txt(t + '_stat',
+                            _('✗ %s').format(lucky_log.translate(s.msg || _('Error'))),
+                            '#dc3545'
+                        );
                         if (t === 'upd') vis('upd_retry', true, 'flex');
                         break;
                 }
