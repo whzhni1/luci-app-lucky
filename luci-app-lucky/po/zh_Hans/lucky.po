@@ -199,6 +199,30 @@ msgstr "保存失败"
 
 # view/lucky/update.js
 
+msgid "Lucky — Download & Update"
+msgstr "Lucky — 下载与更新"
+
+msgid "Lucky kernel Update"
+msgstr "Lucky 内核更新"
+
+msgid "Check Upstream"
+msgstr "检查上游"
+
+msgid "Luci App Update"
+msgstr "Luci 应用更新"
+
+msgid "Check Luci Version"
+msgstr "检查 Luci 版本"
+
+msgid "Auto Update Log"
+msgstr "自动更新日志"
+
+msgid "View Log"
+msgstr "查看日志"
+
+msgid "Clear log"
+msgstr "清除日志"
+
 msgid "Current Status"
 msgstr "当前状态"
 
@@ -504,17 +528,17 @@ msgstr "暂无 LuCI 发布版本"
 msgid "Current LuCI version:"
 msgstr "当前 LuCI 版本："
 
-msgid "Forcing download..."
-msgstr "正在强制下载..."
+msgid "Latest:"
+msgstr "最新："
+
+msgid "auto download..."
+msgstr "正在自动下载..."
 
 msgid "Error:"
 msgstr "错误："
 
 msgid "Warning:"
 msgstr "警告："
-
-msgid "Error"
-msgstr "错误"
 
 msgid "Done"
 msgstr "完成"
