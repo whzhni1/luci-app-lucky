@@ -199,6 +199,66 @@ msgstr "保存失败"
 
 # view/lucky/update.js
 
+msgid "Lucky Version"
+msgstr "Lucky 版本"
+
+msgid "Luci Version"
+msgstr "Luci 版本"
+
+msgid "Variant"
+msgstr "版本类型"
+
+msgid "Architecture"
+msgstr "架构"
+
+msgid "Install Path"
+msgstr "安装路径"
+
+msgid "Data Directory"
+msgstr "数据目录"
+
+msgid "Current Status"
+msgstr "当前状态"
+
+msgid "Loading..."
+msgstr "加载中..."
+
+msgid "Click to check"
+msgstr "点击检查"
+
+msgid "Version:"
+msgstr "版本："
+
+msgid "File:"
+msgstr "文件："
+
+msgid "Install Now"
+msgstr "立即安装"
+
+msgid "Switch and retry:"
+msgstr "切换并重试："
+
+msgid "GitHub (github.com/gdy666/lucky)"
+msgstr "GitHub (github.com/gdy666/lucky)"
+
+msgid "Official (release.66666.plus)"
+msgstr "官方 (release.66666.plus)"
+
+msgid "Stable"
+msgstr "稳定版"
+
+msgid "Beta"
+msgstr "测试版"
+
+msgid "Standard"
+msgstr "标准版"
+
+msgid "Full-featured"
+msgstr "完整版"
+
+msgid "Retry"
+msgstr "重试"
+
 msgid "Lucky — Download & Update"
 msgstr "Lucky — 下载与更新"
 
@@ -220,89 +280,59 @@ msgstr "自动更新日志"
 msgid "View Log"
 msgstr "查看日志"
 
+msgid "(No log)"
+msgstr "(无日志)"
+
 msgid "Clear log"
 msgstr "清除日志"
 
-msgid "Current Status"
-msgstr "当前状态"
+msgid "Clear all update cache and logs? This will delete /tmp/lucky_update."
+msgstr "清除所有更新缓存和日志？这将删除 /tmp/lucky_update。"
 
-msgid "Lucky Version"
-msgstr "Lucky 版本"
+msgid "Cache cleared."
+msgstr "缓存已清除。"
 
-msgid "Luci Version"
-msgstr "LuCI 插件版本"
+msgid "Clear failed."
+msgstr "清除失败。"
 
-msgid "Variant"
-msgstr "版本类型"
-
-msgid "Architecture"
-msgstr "设备架构"
-
-msgid "Install Path"
-msgstr "安装路径"
-
-msgid "Data Directory"
-msgstr "数据目录"
-
-msgid "Loading..."
-msgstr "加载中..."
-
-msgid "Lucky Update"
-msgstr "Lucky 更新"
-
-msgid "Click to check"
-msgstr "点击检查"
-
-msgid "Switch and retry:"
-msgstr "切换镜像源重试："
-
-msgid "Retry"
-msgstr "重试"
-
-msgid "Version:"
-msgstr "版本："
-
-msgid "File:"
-msgstr "文件："
-
-msgid "Install Now"
-msgstr "立即安装"
-
-msgid "LuCI Plugin Update"
-msgstr "LuCI 插件更新"
-
-msgid "Check for Updates"
-msgstr "检查更新"
-
-msgid "Up to date"
-msgstr "已是最新版本"
-
-msgid "New version available:"
-msgstr "发现新版本："
-
-msgid "Checking..."
+msgid "Checking…"
 msgstr "正在检查…"
 
-msgid "Installing..."
-msgstr "正在安装…"
+msgid "✗ Failed to start check"
+msgstr "✗ 启动检查失败"
 
-msgid "Downloading..."
-msgstr "正在下载…"
+msgid "Checking"
+msgstr "检查中"
 
-msgid "Update complete"
-msgstr "更新完成"
+msgid "✓ Found %d version(s)"
+msgstr "✓ 发现 %d 个版本"
 
-msgid "Update failed"
-msgstr "更新失败"
+msgid "✗ %s"
+msgstr "✗ %s"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "✗ Please select version and file"
+msgstr "✗ 请选择版本和文件"
+
+msgid "Starting…"
+msgstr "正在启动…"
+
+msgid "✗ Failed"
+msgstr "✗ 失败"
+
+msgid "Downloading"
+msgstr "下载中"
+
+msgid "Installing"
+msgstr "安装中"
+
+msgid "✓ Complete: %s"
+msgstr "✓ 完成：%s"
 
 msgid "Unknown"
 msgstr "未知"
-
-msgid "Standard"
-msgstr "标准版"
-
-msgid "Full-featured"
-msgstr "完整版"
 
 # lucky/log.js
 
