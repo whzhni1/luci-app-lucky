@@ -341,7 +341,7 @@ do_download() {
 
     init_dir
     write_status "$prefix" "downloading:$tag"
-    log "Downloading $filename from: $url"
+    log "Downloading: $filename from: $url"
     local f="$UPDATE_DIR/$filename"
     http_get "$url" "$f" || die "$prefix" "Download failed: $url"
     [ -s "$f" ]          || die "$prefix" "Downloaded file empty"
