@@ -61,6 +61,6 @@ wget -q -O - "https://gitlab.com/whzhni/tailscale/-/raw/main/Auto_Install_Script
 - **进程管理**：若 Lucky 进程异常退出，`Respawn` 会在30秒内将其重新启动，1小时内连续5次启动失败则放弃启动，无需人工干预。
 
 ---
-![设置](Image/lucky_config.png)
-![更新](Image/lucky_update.png)
+![设置](Images/lucky_config.png)
+![更新](Images/lucky_update.png)
 
