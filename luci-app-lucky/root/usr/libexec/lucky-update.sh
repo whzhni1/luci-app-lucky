@@ -481,11 +481,11 @@ cmd_auto() {
 }
 
 case "$1" in
-    check)         LOG_TO_FILE="$LOG_FILE"      : > "$LOG_FILE";      cmd_check "$2" "$3" "$4" "$5" ;;
-    download)      LOG_TO_FILE="$LOG_FILE"      : > "$LOG_FILE";      cmd_download "$2" "$3" "$4" ;;
-    check_luci)    LOG_TO_FILE="$LUCI_LOG_FILE" : > "$LUCI_LOG_FILE"; cmd_check_luci ;;
-    download_luci) LOG_TO_FILE="$LUCI_LOG_FILE" : > "$LUCI_LOG_FILE"; cmd_download_luci "$2" "$3" ;;
-    auto|"")       LOG_TO_FILE="$AUTO_LOG"      : > "$AUTO_LOG";      cmd_auto ;;
+    check)         init_dir; LOG_TO_FILE="$LOG_FILE";      : > "$LOG_FILE";      cmd_check "$2" "$3" "$4" "$5" ;;
+    download)      init_dir; LOG_TO_FILE="$LOG_FILE";      : > "$LOG_FILE";      cmd_download "$2" "$3" "$4" ;;
+    check_luci)    init_dir; LOG_TO_FILE="$LUCI_LOG_FILE"; : > "$LUCI_LOG_FILE"; cmd_check_luci ;;
+    download_luci) init_dir; LOG_TO_FILE="$LUCI_LOG_FILE"; : > "$LUCI_LOG_FILE"; cmd_download_luci "$2" "$3" ;;
+    auto|"")       init_dir; LOG_TO_FILE="$AUTO_LOG";      : > "$AUTO_LOG";      cmd_auto ;;
     detect_arch)   detect_arch ;;
     detect_pm)     detect_pm ;;
     *)
