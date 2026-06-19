@@ -7,27 +7,23 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-# luci-app-lucky.json
-
+# luci-app-lucky.json / menu
 msgid "Lucky"
 msgstr "Lucky"
 
-msgid "Basic Settings"
-msgstr "基本设置"
+msgid "Status"
+msgstr "运行状态"
+
+msgid "Settings"
+msgstr "服务设置"
 
 msgid "Download & Update"
 msgstr "下载与更新"
 
-# view/lucky/config.js
+# view/lucky/status.js
 
-msgid "Collecting data…"
-msgstr "正在收吉数据…"
-
-msgid "Port forward · DDNS · Reverse Proxy · WoL · IoT · and more"
-msgstr "端口转发 · DDNS · 反向代理 · 网络唤醒 · 物联网 · 更多功能"
-
-msgid "LuCI App: "
-msgstr "LuCI 插件："
+msgid "Checking..."
+msgstr "检测中..."
 
 msgid "RUNNING"
 msgstr "运行中"
@@ -35,125 +31,193 @@ msgstr "运行中"
 msgid "NOT RUNNING"
 msgstr "未运行"
 
+msgid "Uptime: "
+msgstr "运行时长："
+
 msgid "Open Lucky Web UI"
-msgstr "打开 Lucky 管理界面"
+msgstr "打开 Lucky 控制台"
 
-msgid "Lucky binary not found. Download it now automatically?"
-msgstr "未找到 Lucky 程序，是否立即自动下载？"
+msgid "CPU Usage"
+msgstr "CPU 占用"
 
-msgid "Download started, please wait…"
-msgstr "下载已开始，请稍候…"
+msgid "Threads: "
+msgstr "线程数："
 
-msgid "Failed to start download, please check the log."
-msgstr "下载启动失败，请查看日志。"
+msgid "Memory"
+msgstr "内存占用"
 
-msgid "Download and installation complete."
-msgstr "下载并安装完成。"
+msgid "Process"
+msgstr "进程信息"
 
-msgid "Download failed, please check the log."
-msgstr "下载失败，请查看日志。"
+msgid "Nice: "
+msgstr "优先级："
+
+msgid "Version Info"
+msgstr "版本信息"
+
+msgid "Variant"
+msgstr "版本类型"
+
+msgid "Arch"
+msgstr "系统架构"
+
+msgid "Access Info"
+msgstr "访问信息"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Protocol"
+msgstr "协议"
+
+msgid "Entrance"
+msgstr "安全入口"
+
+msgid "URL"
+msgstr "访问地址"
+
+msgid "Official Website"
+msgstr "官方网站"
+
+msgid "Lucky core binary not found"
+msgstr "未找到 Lucky 核心文件"
+
+msgid "The Lucky executable is missing. Download it to start the service."
+msgstr "Lucky 可执行文件不存在，下载后才能启动服务。"
+
+msgid "Download Lucky Core"
+msgstr "立即下载内核"
+
+msgid "Starting download…"
+msgstr "正在启动下载…"
+
+msgid "Failed to start, please check log."
+msgstr "启动失败，请查看日志。"
+
+msgid "Downloading…"
+msgstr "下载中…"
 
 msgid "Waiting"
 msgstr "等待中"
 
-msgid "Service Settings"
-msgstr "服务设置"
+msgid "Downloading"
+msgstr "下载中"
+
+msgid "✓ Download complete, refreshing…"
+msgstr "✓ 下载完成，正在刷新…"
+
+msgid "✗ Download failed, see log below."
+msgstr "✗ 下载失败，请查看下方日志。"
+
+msgid "Lucky — Status"
+msgstr "Lucky — 运行状态"
+
+msgid "N/A"
+msgstr "不可用"
+
+msgid "Unknown"
+msgstr "未知"
+
+# view/lucky/config.js
+
+msgid "Lucky — Settings"
+msgstr "Lucky — 服务设置"
+
+msgid "⚙ Basic Service"
+msgstr "⚙ 基础服务"
 
 msgid "Enable Lucky"
 msgstr "启用 Lucky"
 
 msgid "Start Lucky service automatically on boot"
-msgstr "开机时自动启动 Lucky 服务"
+msgstr "开机自动启动 Lucky 服务"
 
 msgid "Enable"
 msgstr "启用"
 
 msgid "Web UI Port"
-msgstr "管理界面端口"
+msgstr "Web 界面端口"
 
-msgid "Port for accessing the Lucky web interface, default: 16601"
-msgstr "访问 Lucky 管理界面的端口号，默认：16601"
+msgid "Default: 16601"
+msgstr "默认端口：16601"
 
 msgid "Safe Entrance"
 msgstr "安全入口"
 
-msgid "Custom URL path prefix to protect the web interface, e.g.: mysecret"
-msgstr "自定义 URL 路径前缀以保护管理界面，例如：mysecret"
+msgid "URL path prefix, e.g.: mysecret"
+msgstr "URL 路径前缀，例如：mysecret"
 
 msgid "Enable HTTPS"
 msgstr "启用 HTTPS"
 
-msgid "Encrypt web interface access using SSL/TLS"
-msgstr "使用 SSL/TLS 加密管理界面访问"
+msgid "Encrypt access using SSL/TLS"
+msgstr "使用 SSL/TLS 加密访问"
 
-msgid "Delayed Start (seconds)"
+msgid "Delayed Start (s)"
 msgstr "延迟启动（秒）"
 
-msgid "Delay before starting after boot, only applied when system uptime < 120s"
-msgstr "开机后延迟启动的秒数，仅在系统运行时间不足 120 秒时生效"
+msgid "Delay before starting after boot (only when uptime < 120s)"
+msgstr "开机后延迟启动，仅在系统运行时间不足 120 秒时生效"
 
 msgid "Reset Credentials"
-msgstr "重置账号密码"
+msgstr "重置凭据"
 
-msgid "Reset admin username and password back to 666"
-msgstr "将管理员用户名和密码重置为 666"
+msgid "Reset username and password back to 666"
+msgstr "将管理员账号和密码重置为 666"
 
 msgid "Reset password"
 msgstr "重置密码"
 
-msgid "Are you sure you want to reset credentials to 666? The service will restart automatically."
-msgstr "确定要将账号密码重置为 666 吗？服务将自动重启。"
+msgid "Reset credentials to 666? Service will restart."
+msgstr "确定将凭据重置为 666？服务将自动重启。"
 
-msgid "Credentials have been reset to: 666, service is restarting…"
-msgstr "账号密码已重置为：666，服务正在重启…"
+msgid "Credentials reset to 666, service restarting…"
+msgstr "凭据已重置为 666，服务正在重启…"
 
 msgid "Reset failed, please check the log."
-msgstr "重置失败，请查看日志。"
+msgstr "重置失败，请检查日志。"
 
-msgid "Path & Architecture"
-msgstr "路径与架构"
+msgid "📁 Path & Architecture"
+msgstr "📁 路径与架构"
 
 msgid "Data Directory"
 msgstr "数据目录"
 
-msgid "Directory where Lucky stores runtime configuration and data"
-msgstr "Lucky 存放运行配置和数据的目录"
+msgid "Lucky runtime data directory"
+msgstr "Lucky 运行时数据存储目录"
 
 msgid "Binary Path"
-msgstr "程序路径"
+msgstr "二进制路径"
 
-msgid "Full path to the Lucky executable binary"
-msgstr "Lucky 可执行程序的完整路径"
+msgid "Full path to the Lucky executable"
+msgstr "Lucky 可执行文件的完整路径"
 
-msgid "Device Architecture"
+msgid "Architecture"
 msgstr "设备架构"
 
-msgid "Current detected: "
-msgstr "当前检测到："
+msgid "Detected: "
+msgstr "已检测到："
 
-msgid "Leave as \"auto\" to detect automatically, or manually specify to override"
-msgstr "留空 \"auto\" 自动检测，或手动指定以覆盖"
+msgid "Leave \"auto\" to detect automatically"
+msgstr "填写 auto 将自动检测，也可手动指定"
 
-msgid "Download & Update Settings"
-msgstr "下载与更新设置"
-
-msgid "GitHub (github.com/gdy666/lucky)"
-msgstr "GitHub (github.com/gdy666/lucky)"
-
-msgid "Official (release.66666.plus)"
-msgstr "官网 (release.66666.plus)"
+msgid "🔄 Download & Update"
+msgstr "🔄 下载与更新"
 
 msgid "Download Mirror"
 msgstr "下载镜像源"
 
-msgid "Select the download source for Lucky binary updates"
-msgstr "选择 Lucky 程序更新的下载来源"
+msgid "GitHub (github.com/gdy666/lucky)"
+msgstr "GitHub（github.com/gdy666/lucky）"
+
+msgid "Official (release.66666.plus)"
+msgstr "官方源（release.66666.plus）"
 
 msgid "Release Channel"
 msgstr "发布通道"
 
-msgid "Beta channel is only available when using the Mirror source"
-msgstr "Beta 通道仅在使用镜像源时可用"
+msgid "Beta only available with Official mirror"
+msgstr "测试版仅在选择官方源时可用"
 
 msgid "Stable"
 msgstr "稳定版"
@@ -164,8 +228,8 @@ msgstr "测试版"
 msgid "Lucky Variant"
 msgstr "Lucky 版本类型"
 
-msgid "Standard: smaller size. Full-featured (wanji): includes additional features"
-msgstr "标准版：体积更小；完整版（万吉）：包含更多附加功能"
+msgid "Standard: smaller. Full-featured: more functions"
+msgstr "标准版体积更小，完整版包含更多功能"
 
 msgid "Standard (lucky)"
 msgstr "标准版（lucky）"
@@ -173,82 +237,73 @@ msgstr "标准版（lucky）"
 msgid "Full-featured (wanji)"
 msgstr "完整版（wanji）"
 
-msgid "Auto update:"
-msgstr "自动更新："
+msgid "🕐 Auto Update"
+msgstr "🕐 自动更新"
 
 msgid "Enable Auto Update"
 msgstr "启用自动更新"
 
-msgid "Periodically check and install the latest Lucky version via cron job"
-msgstr "通过定时任务定期检查并安装最新版本的 Lucky"
+msgid "Periodically check and install the latest version"
+msgstr "定期检查并自动安装最新版本"
 
 msgid "Check Interval (days)"
 msgstr "检查间隔（天）"
 
-msgid "Number of days between each automatic update check, range: 1 - 365"
-msgstr "每次自动更新检查之间的间隔天数，范围：1 - 365"
+msgid "Range: 1 – 365 days"
+msgstr "范围：1 至 365 天"
 
 msgid "Settings saved, service reloading…"
 msgstr "设置已保存，服务正在重载…"
 
 msgid "Settings saved successfully"
-msgstr "设置保存成功"
+msgstr "设置已成功保存"
 
 msgid "Save failed"
 msgstr "保存失败"
 
 # view/lucky/update.js
 
+msgid "Lucky — Download & Update"
+msgstr "Lucky — 下载与更新"
+
+msgid "📊 Current Installation"
+msgstr "📊 当前安装信息"
+
 msgid "Lucky Version"
 msgstr "Lucky 版本"
 
-msgid "Luci Version"
-msgstr "Luci 版本"
-
-msgid "Variant"
-msgstr "版本类型"
+msgid "LuCI Version"
+msgstr "LuCI 版本"
 
 msgid "Architecture"
-msgstr "架构"
+msgstr "系统架构"
 
-msgid "Install Path"
-msgstr "安装路径"
+msgid "Binary Path"
+msgstr "二进制路径"
 
-msgid "Data Directory"
+msgid "Data Dir"
 msgstr "数据目录"
-
-msgid "Current Status"
-msgstr "当前状态"
 
 msgid "Loading..."
 msgstr "加载中..."
 
+msgid "🔽 Lucky Core Update"
+msgstr "🔽 Lucky 内核更新"
+
+msgid "Check Upstream"
+msgstr "检查上游版本"
+
 msgid "Click to check"
 msgstr "点击检查"
 
-msgid "Version:"
-msgstr "版本："
+msgid "Switch mirror and retry:"
+msgstr "切换镜像源后重试："
 
-msgid "File:"
-msgstr "文件："
+msgid "GitHub"
+msgstr "GitHub"
 
-msgid "Install Now"
-msgstr "立即安装"
-
-msgid "Switch and retry:"
-msgstr "切换并重试："
-
-msgid "GitHub (github.com/gdy666/lucky)"
-msgstr "GitHub (github.com/gdy666/lucky)"
-
-msgid "Official (release.66666.plus)"
-msgstr "官方 (release.66666.plus)"
-
-msgid "Stable"
-msgstr "稳定版"
-
-msgid "Beta"
-msgstr "测试版"
+msgid "Official"
+msgstr "官方源"
 
 msgid "Standard"
 msgstr "标准版"
@@ -259,35 +314,32 @@ msgstr "完整版"
 msgid "Retry"
 msgstr "重试"
 
-msgid "Lucky — Download & Update"
-msgstr "Lucky — 下载与更新"
+msgid "Version:"
+msgstr "版本："
 
-msgid "Lucky kernel Update"
-msgstr "Lucky 内核更新"
+msgid "File:"
+msgstr "文件："
 
-msgid "Check Upstream"
-msgstr "检查上游"
+msgid "Install Now"
+msgstr "立即安装"
 
-msgid "Luci App Update"
-msgstr "Luci 应用更新"
+msgid "🔽 LuCI App Update"
+msgstr "🔽 LuCI 插件更新"
 
-msgid "Check Luci Version"
-msgstr "检查 Luci 版本"
+msgid "Check LuCI"
+msgstr "检查 LuCI 版本"
 
-msgid "Auto Update Log"
-msgstr "自动更新日志"
+msgid "📋 Auto Update Log"
+msgstr "📋 自动更新日志"
 
 msgid "View Log"
 msgstr "查看日志"
 
-msgid "(No log)"
-msgstr "(无日志)"
+msgid "Clear Cache"
+msgstr "清除缓存"
 
-msgid "Clear log"
-msgstr "清除日志"
-
-msgid "Clear all update cache and logs? This will delete /tmp/lucky_update."
-msgstr "清除所有更新缓存和日志？这将删除 /tmp/lucky_update。"
+msgid "Clear all update cache and logs?"
+msgstr "确定清除所有更新缓存和日志？"
 
 msgid "Cache cleared."
 msgstr "缓存已清除。"
@@ -295,32 +347,29 @@ msgstr "缓存已清除。"
 msgid "Clear failed."
 msgstr "清除失败。"
 
-msgid "Checking…"
-msgstr "正在检查…"
+msgid "(No log)"
+msgstr "（暂无日志）"
 
-msgid "✗ Failed to start check"
-msgstr "✗ 启动检查失败"
+msgid "Checking…"
+msgstr "检查中…"
 
 msgid "Checking"
 msgstr "检查中"
 
 msgid "✓ Found %d version(s)"
-msgstr "✓ 发现 %d 个版本"
+msgstr "✓ 找到 %d 个可用版本"
 
-msgid "✗ %s"
-msgstr "✗ %s"
-
-msgid "Error"
-msgstr "错误"
+msgid "✗ Failed to start check"
+msgstr "✗ 检查启动失败"
 
 msgid "✗ Please select version and file"
-msgstr "✗ 请选择版本和文件"
+msgstr "✗ 请先选择版本和文件"
 
 msgid "Starting…"
-msgstr "正在启动…"
+msgstr "启动中…"
 
 msgid "✗ Failed"
-msgstr "✗ 失败"
+msgstr "✗ 操作失败"
 
 msgid "Downloading"
 msgstr "下载中"
@@ -329,10 +378,13 @@ msgid "Installing"
 msgstr "安装中"
 
 msgid "✓ Complete: %s"
-msgstr "✓ 完成：%s"
+msgstr "✓ 安装完成：%s"
 
-msgid "Unknown"
-msgstr "未知"
+msgid "✗ %s"
+msgstr "✗ %s"
+
+msgid "Error"
+msgstr "发生错误"
 
 # lucky/log.js
 
