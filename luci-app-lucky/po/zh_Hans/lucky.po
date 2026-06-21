@@ -130,11 +130,11 @@ msgstr "运行时间: "
 msgid "Open Lucky Web UI"
 msgstr "打开Lucky 控制台"
 
-msgid "Cores: "
-msgstr "核心数: "
+msgid "Cores:"
+msgstr "核心数:"
 
-msgid "Threads: "
-msgstr "线程数: "
+msgid "Threads:"
+msgstr "线程数:"
 
 # view/lucky/config.js
 
@@ -166,13 +166,13 @@ msgid "Web UI Port"
 msgstr "Web UI 端口"
 
 msgid "Default: 16601"
-msgstr "默认：16601"
+msgstr "访问 Lucky 管理界面的端口号，默认：16601"
 
 msgid "Safe Entrance"
 msgstr "安全入口"
 
 msgid "URL path prefix, e.g.: mysecret"
-msgstr "URL路径前缀，例如：mysecret"
+msgstr "自定义 URL 路径前缀以保护管理界面，例如：mysecret"
 
 msgid "Enable HTTPS"
 msgstr "启用HTTPS"
@@ -208,13 +208,13 @@ msgid "Full path to the Lucky executable"
 msgstr "Lucky可执行文件的完整路径"
 
 msgid "Architecture"
-msgstr "架构"
+msgstr "设备架构"
 
-msgid "Detected: "
-msgstr "检测到： "
+msgid "Detected:"
+msgstr "当前检测:"
 
 msgid "Leave \"auto\" to detect automatically"
-msgstr "留空“auto”以自动检测"
+msgstr "留空 "auto" 自动检测，或手动指定以覆盖"
 
 msgid "🔄 Download & Update"
 msgstr "🔄 下载与更新"
@@ -241,7 +241,7 @@ msgid "Beta"
 msgstr "Beta版"
 
 msgid "Lucky Variant"
-msgstr "Lucky变体"
+msgstr "Lucky版本类型"
 
 msgid "Standard: smaller. Full-featured: more functions"
 msgstr "标准版：体积小。全功能版：功能更多"
@@ -356,8 +356,8 @@ msgstr "🔽 LuCI 应用更新"
 msgid "Check LuCI"
 msgstr "检查 LuCI"
 
-msgid "📋 Auto Update Log"
-msgstr "📋 自动更新日志"
+msgid "📋 View logs"
+msgstr "📋 查看日志"
 
 msgid "Auto Update Log"
 msgstr "自动更新日志"
