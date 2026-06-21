@@ -124,8 +124,8 @@ msgstr "运行中"
 msgid "NOT RUNNING"
 msgstr "未运行"
 
-msgid "Uptime: "
-msgstr "运行时间: "
+msgid "Uptime:"
+msgstr "运行时间:"
 
 msgid "Open Lucky Web UI"
 msgstr "打开Lucky 控制台"
@@ -214,7 +214,7 @@ msgid "Detected:"
 msgstr "当前检测:"
 
 msgid "Leave \"auto\" to detect automatically"
-msgstr "留空 "auto" 自动检测，或手动指定以覆盖"
+msgstr "auto 自动检测，或手动指定"
 
 msgid "🔄 Download & Update"
 msgstr "🔄 下载与更新"
