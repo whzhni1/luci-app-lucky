@@ -1,3 +1,4 @@
+// /www/luci-static/resources/lucky/log.js
 'use strict';
 'require baseclass';
 

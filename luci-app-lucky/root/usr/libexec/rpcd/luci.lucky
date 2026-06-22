@@ -7,13 +7,22 @@ import { cursor } from 'uci';
 const DIR    = '/tmp/lucky_update';
 const SCRIPT = '/usr/libexec/lucky-update.sh';
 const ALOG   = DIR + '/autoupdate.log';
+const SLOG   = DIR + '/lucky-start.log';
+const INIT = '/etc/init.d/lucky';
 
 const SETTINGS = {
     enabled: '0', port: '16601', safe: '', ssl: '0', delay: '60',
     configdir: '/etc/config/lucky.daji', binpath: '/usr/bin/lucky',
     arch: 'auto', mirror: 'github', release_type: 'stable', variant: 'lucky',
+    respawn_threshold: '3600', respawn_timeout: '30', respawn_retry: '5',
     auto_update: '0', update_interval: '7'
 };
+
+const RESTART_KEYS = [
+    'enabled', 'port', 'safe', 'ssl', 'delay',
+    'binpath', 'configdir',
+    'respawn_threshold', 'respawn_timeout', 'respawn_retry'
+];
 
 function sys(c)    { let p = popen(c, 'r'); if (!p) return -1; p.read('all'); return p.close(); }
 function exec(c)   { let p = popen(c, 'r'); let o = p ? p.read('all') : ''; if (p) p.close(); return trim(o ?? ''); }
@@ -70,14 +79,58 @@ function getTaskStatus(prefix, doneTag) {
     return { status: 'idle' };
 }
 
-const api = {
-    clean_update: () => {
-        sys(`rm -rf '${DIR}' && mkdir -p '${DIR}'`);
-        return { result: 'ok' };
-    },
+function parseStatFields(raw) {
+    let rp = index(raw, ')');
+    if (rp < 0) return [];
+    let tail = trim(substr(raw, rp + 1));
+    let parts = [];
+    for (let f in split(tail, ' ')) {
+        let t = trim(f);
+        if (length(t) > 0) push(parts, t);
+    }
+    return parts;
+}
 
-    run_update: () => {
-        sys(`setsid '${SCRIPT}' >/dev/null 2>&1 &`);
+function readProcKey(path, key) {
+    let raw = read(path);
+    for (let line in split(raw, '\n')) {
+        if (index(line, key) === 0) {
+            let parts = [];
+            for (let f in split(trim(line), ' ')) {
+                let t = trim(f);
+                if (length(t) > 0) push(parts, t);
+            }
+            return int(parts[1]) || 0;
+        }
+    }
+    return 0;
+}
+
+function readTotalTicks() {
+    let line  = exec('head -1 /proc/stat');
+    let total = 0;
+    let first = true;
+    for (let f in split(trim(line), ' ')) {
+        let t = trim(f);
+        if (!length(t)) continue;
+        if (first) { first = false; continue; }
+        total += int(t) || 0;
+    }
+    return total;
+}
+
+const api = {
+
+    toggle_service: (a) => {
+        let action = a.action || '';
+        if (action !== 'enable' && action !== 'disable' && action !== 'restart')
+            return { result: 'error', msg: 'unknown action' };
+        if (action === 'enable' || action === 'disable') {
+            let u = cursor(); u.load('lucky');
+            u.set('lucky', 'lucky', 'enabled', action === 'enable' ? '1' : '0');
+            u.commit('lucky');
+        }
+        sys(`setsid '${INIT}' restart >/dev/null 2>&1 &`);
         return { result: 'ok' };
     },
 
@@ -89,17 +142,19 @@ const api = {
         };
     },
 
-    get_arch: () => ({ arch: exec(`${SCRIPT} detect_arch 2>/dev/null`) }),
+    get_arch: () => ({ arch: exec(`'${SCRIPT}' detect_arch 2>/dev/null`) }),
 
     get_system_info: () => {
         let bin       = ucv('binpath');
         let configdir = ucv('configdir');
         let vfile     = configdir + '/.lucky_version';
+        let mirror    = ucv('mirror');
+        let variant   = mirror === 'r66666' ? ucv('variant') : 'lucky';
         return {
             version:      exists(vfile) ? (trim(read(vfile)) || 'Unknown') : null,
             luci_version: getLuciVersion() || 'Unknown',
-            variant:      ucv('variant'),
-            arch:         exec(`${SCRIPT} detect_arch 2>/dev/null`),
+            variant:      variant,
+            arch:         exec(`'${SCRIPT}' detect_arch 2>/dev/null`),
             binpath:      bin,
             configdir:    configdir
         };
@@ -113,17 +168,87 @@ const api = {
     },
 
     save_settings: (a) => {
-        let u = cursor();
-        u.load('lucky');
-        for (let k in SETTINGS) u.set('lucky', 'lucky', k, a[k] ?? SETTINGS[k]);
+        let u = cursor(); u.load('lucky');
+        let needRestart = false;
+        for (let k in RESTART_KEYS) {
+            let old = u.get('lucky', 'lucky', k) || SETTINGS[k] || '';
+            if (a[k] !== null && a[k] !== old) { needRestart = true; break; }
+        }
+        for (let k in SETTINGS) {
+            if (a[k] !== null) u.set('lucky', 'lucky', k, a[k]);
+        }
         u.commit('lucky');
-        sys(`setsid /etc/init.d/lucky reload >/dev/null 2>&1 &`);
+
+        let cmd = needRestart ? 'restart' : 'reload';
+        sys(`setsid ${INIT} ${cmd} >/dev/null 2>&1 &`);
         return { result: 'ok' };
     },
 
     reset_user: () => {
         let bin = ucv('binpath'), cfg = ucv('configdir');
         return { result: sys(`'${bin}' -rResetUser -cd '${cfg}' >/dev/null 2>&1`) === 0 };
+    },
+
+    get_process_stats: () => {
+        let pid = exec('pidof lucky 2>/dev/null');
+        if (!pid || !exists(`/proc/${pid}`))
+            return { pid: null, proc_ticks: 0, total_ticks: 0,
+                     cores: 1, mem_rss: 0, mem_percent: 0,
+                     uptime_seconds: 0, threads: 0, nice: 0 };
+
+        let flds      = parseStatFields(read(`/proc/${pid}/stat`));
+        let utime     = int(flds[11]) || 0;
+        let stime     = int(flds[12]) || 0;
+        let nice      = int(flds[16]) || 0;
+        let threads   = int(flds[17]) || 0;
+        let starttime = int(flds[19]) || 0;
+
+        let totalTicks = readTotalTicks();
+        let cores = int(exec("grep -c '^processor' /proc/cpuinfo 2>/dev/null")) || 1;
+
+        let memRss   = readProcKey(`/proc/${pid}/status`, 'VmRSS:');
+        let memTotal = readProcKey('/proc/meminfo', 'MemTotal:');
+        let memPct   = memTotal > 0
+            ? int(memRss * 10000 / memTotal + 0.5) / 100 : 0;
+
+        let btime = 0;
+        for (let line in split(read('/proc/stat'), '\n')) {
+            if (index(line, 'btime') === 0) {
+                let parts = [];
+                for (let f in split(trim(line), ' ')) {
+                    let t = trim(f);
+                    if (length(t) > 0) push(parts, t);
+                }
+                btime = int(parts[1]) || 0;
+                break;
+            }
+        }
+        let hz         = 100;
+        let startEpoch = btime + int(starttime / hz);
+        let nowEpoch   = int(exec('date +%s')) || 0;
+        let uptimeSec  = nowEpoch > startEpoch ? nowEpoch - startEpoch : 0;
+
+        return {
+            pid:            int(pid),
+            proc_ticks:     utime + stime,
+            total_ticks:    totalTicks,
+            cores:          cores,
+            mem_rss:        memRss,
+            mem_percent:    memPct,
+            uptime_seconds: uptimeSec,
+            threads:        threads,
+            nice:           nice
+        };
+    },
+
+    clean_update: () => {
+        sys(`rm -rf '${DIR}' && mkdir -p '${DIR}'`);
+        return { result: 'ok' };
+    },
+
+    run_update: () => {
+        sys(`setsid '${SCRIPT}' >/dev/null 2>&1 &`);
+        return { result: 'ok' };
     },
 
     get_upstream_version: (a) => runTask('', 'checking',
@@ -148,27 +273,32 @@ const api = {
 
     get_luci_update_status: () => getTaskStatus('luci_', 'luci_done:'),
 
-    get_auto_update_log: () => ({
-        log: exists(ALOG) ? exec(`tail -n 200 '${ALOG}' 2>/dev/null`) : ''
-    })
+    get_auto_update_log: (a) => {
+        let logfile = (a && a.type === 'run') ? SLOG : ALOG;
+        return {
+            log: exists(logfile) ? read(logfile) : ''
+        };
+    },
 };
 
 const SIGS = {
-    get_status:            {},
-    get_arch:              {},
-    get_system_info:       {},
-    get_settings:          {},
-    reset_user:            {},
-    get_update_status:     {},
-    check_luci:            {},
-    get_luci_update_status:{},
-    get_auto_update_log:   {},
-    run_update:            {},
-    clean_update:          {},
-    save_settings:         {},
-    get_upstream_version:  { mirror: 'String', release_type: 'String', variant: 'String' },
-    do_update:             { tag: 'String', filename: 'String' },
-    do_update_luci:        { tag: 'String', filename: 'String' }
+    get_status:             {},
+    get_arch:               {},
+    get_system_info:        {},
+    get_settings:           {},
+    get_process_stats:      {},
+    reset_user:             {},
+    get_update_status:      {},
+    check_luci:             {},
+    get_luci_update_status: {},
+    get_auto_update_log:    { type: 'String' },
+    run_update:             {},
+    clean_update:           {},
+    save_settings:          {},
+    toggle_service:         { action: 'String' },
+    get_upstream_version:   { mirror: 'String', release_type: 'String', variant: 'String' },
+    do_update:              { tag: 'String', filename: 'String' },
+    do_update_luci:         { tag: 'String', filename: 'String' }
 };
 
 for (let k in SETTINGS) SIGS.save_settings[k] = 'String';

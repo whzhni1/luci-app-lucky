@@ -9,9 +9,17 @@
             "acl": [ "luci-app-lucky" ]
         }
     },
+    "admin/services/lucky/status": {
+        "title": "Running Status",
+        "order": 10,
+        "action": {
+            "type": "view",
+            "path": "lucky/status"
+        }
+    },
     "admin/services/lucky/config": {
         "title": "Basic Settings",
-        "order": 10,
+        "order": 20,
         "action": {
             "type": "view",
             "path": "lucky/config"
@@ -19,7 +27,7 @@
     },
     "admin/services/lucky/update": {
         "title": "Download & Update",
-        "order": 20,
+        "order": 30,
         "action": {
             "type": "view",
             "path": "lucky/update"

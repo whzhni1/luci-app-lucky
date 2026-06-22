@@ -8,9 +8,11 @@
                     "get_arch",
                     "get_system_info",
                     "get_settings",
+                    "get_process_stats",
                     "get_update_status",
                     "get_luci_update_status",
-                    "get_auto_update_log"
+                    "get_auto_update_log",
+                    "get_upstream_version"
                 ]
             }
         },
@@ -18,13 +20,13 @@
             "ubus": {
                 "luci.lucky": [
                     "save_settings",
+                    "toggle_service",
                     "reset_user",
-                    "get_upstream_version",
-                    "do_update",
-                    "check_luci",
-                    "do_update_luci",
                     "run_update",
-                    "clean_update"
+                    "clean_update",
+                    "do_update",
+                    "do_update_luci",
+                    "check_luci"
                 ]
             }
         }

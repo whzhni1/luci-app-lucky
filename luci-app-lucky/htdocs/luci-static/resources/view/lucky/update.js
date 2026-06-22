@@ -2,177 +2,226 @@
 'require view';
 'require rpc';
 'require uci';
+'require ui';
 'require lucky/log';
 
-var rpcC = function(m, p) {
-    return rpc.declare({ object: 'luci.lucky', method: m, params: p, expect: { '': {} } });
-};
+function loadCommon() {
+    return new Promise(function(resolve, reject) {
+        if (window.luckyUI) return resolve(window.luckyUI);
+        var s = document.createElement('script');
+        s.src = L.resource('lucky/common.js');
+        s.onload  = function() { resolve(window.luckyUI); };
+        s.onerror = function() { reject(new Error('Failed to load common.js')); };
+        document.head.appendChild(s);
+    });
+}
+
+function mkRpc(method, params) {
+    return rpc.declare({
+        object: 'luci.lucky', method: method,
+        params: params, expect: { '': {} }
+    });
+}
 
 var api = {
-    info:        rpcC('get_system_info'),
-    updChk:      rpcC('get_upstream_version', ['mirror', 'release_type', 'variant']),
-    updStat:     rpcC('get_update_status'),
-    updDo:       rpcC('do_update', ['tag', 'filename']),
-    luciChk:     rpcC('check_luci'),
-    luciStat:    rpcC('get_luci_update_status'),
-    luciDo:      rpcC('do_update_luci', ['tag', 'filename']),
-    autoLog:     rpcC('get_auto_update_log'),
-    cleanUpdate: rpcC('clean_update')
+    info:        mkRpc('get_system_info'),
+    updChk:      mkRpc('get_upstream_version', ['mirror','release_type','variant']),
+    updStat:     mkRpc('get_update_status'),
+    updDo:       mkRpc('do_update',            ['tag','filename']),
+    luciChk:     mkRpc('check_luci'),
+    luciStat:    mkRpc('get_luci_update_status'),
+    luciDo:      mkRpc('do_update_luci',       ['tag','filename']),
+    autoLog:     mkRpc('get_auto_update_log',  ['type']),
+    cleanUpdate: mkRpc('clean_update')
 };
 
 var $ = function(id) { return document.getElementById(id); };
-
-var txt = function(id, t, c) {
-    var e = $(id);
-    if (!e) return;
-    e.textContent = t;
-    if (c) e.style.color = c;
-};
-
-var vis = function(id, s, d) {
-    var e = $(id);
-    if (e) e.style.display = s ? (d || 'block') : 'none';
-};
-
-var LOG_STYLE = [
-    'display:none', 'margin-top:10px', 'background:#1e1e1e', 'color:#d4d4d4',
-    'padding:10px', 'font-size:12px', 'height:200px', 'overflow-y:auto',
-    'border-radius:4px', 'white-space:pre-wrap', 'font-family:monospace'
-].join(';');
-
 var ucig = function(k) { return uci.get('lucky', 'lucky', k); };
 
-var infoBlock = function() {
-    var th = 'padding:8px 12px;text-align:left;width:160px;';
-    var td = 'padding:8px 12px;';
-    var rows = [
-        [_('Lucky Version'), 'iv'], [_('Luci Version'), 'il'], [_('Variant'),       'ir'],
-        [_('Architecture'),  'ia'], [_('Install Path'), 'ip'], [_('Data Directory'), 'ic']
+function mkSelect(id, opts, cur, onChange) {
+    var C = window.luckyUI;
+    return E('select', {
+        id: id,
+        style: C.CSS.inputBg + ';width:auto;max-width:100%;cursor:pointer;',
+        change: onChange || null
+    }, opts.map(function(o) {
+        return E('option', {
+            value: o.v,
+            selected: o.v === cur ? 'selected' : null,
+            style: 'background:#fff;color:#333;'
+        }, o.l);
+    }));
+}
+
+function buildInfoGrid(C) {
+    var items = [
+        [_('Lucky Version'), 'ii_ver'],  [_('LuCI Version'), 'ii_luci'],
+        [_('Variant'),       'ii_var'],  [_('Architecture'), 'ii_arch'],
+        [_('Binary Path'),   'ii_bin'],  [_('Data Dir'),     'ii_cfg']
     ];
-    return E('div', { class: 'cbi-section' }, [
-        E('h3', {}, _('Current Status')),
-        E('div', { style: 'overflow-x:auto;border:1px solid #ddd;border-radius:8px;' },
-            E('table', { style: 'width:100%;min-width:360px;border-collapse:collapse;' },
-                rows.map(function(r) {
-                    return E('tr', {}, [
-                        E('th', { style: th }, r[0]),
-                        E('td', { style: td, id: r[1] }, E('em', {}, _('Loading...')))
-                    ]);
-                })
-            )
+    return C.buildCard(_('📊 Current Installation'),
+        E('div', { style: [
+            'display:grid',
+            'grid-template-columns:repeat(3,1fr)',
+            'gap:12px',
+            'min-width:480px'
+        ].join(';') },
+            items.map(function(it) {
+                return E('div', {
+                    style: 'background:#f8f9fa;border-radius:8px;padding:12px 14px;'
+                }, [
+                    E('div', { style: C.CSS.cardTitle }, it[0]),
+                    E('div', { id: it[1],
+                        style: 'font-size:14px;font-weight:600;' +
+                               'margin-top:4px;word-break:break-all;'
+                    }, E('em', {}, _('Loading...')))
+                ]);
+            })
         )
-    ]);
-};
-
-var buildSelect = function(id, opts, cur, onChange) {
-    return E('select', { class: 'cbi-input-select', id: id, style: 'width:auto;', change: onChange },
-        opts.map(function(o) {
-            return E('option', { value: o.v, selected: o.v === cur ? 'selected' : null }, o.l);
-        })
     );
-};
+}
 
-var buildSection = function(t, tLbl, bLbl, self, ext) {
-    return E('div', { class: 'cbi-section' }, [
-        E('h3', {}, tLbl),
-        E('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;' }, [
-            E('button', { class: 'btn cbi-button-action', id: t + '_chk',
+function buildUpdateSection(C, t, title, chkLabel, self, extraEl) {
+    return C.buildCard(title, [
+        E('div', {
+            style: 'display:flex;align-items:center;gap:10px;' +
+                   'flex-wrap:wrap;margin-bottom:8px;'
+        }, [
+            E('button', { style: C.CSS.btn.primary, id: t + '_chk',
                 click: function() { self._chk(t); }
-            }, bLbl),
-            E('span', { id: t + '_stat', style: 'font-size:13px;color:#888;' }, _('Click to check'))
+            }, chkLabel),
+            E('span', { id: t + '_stat', style: 'font-size:13px;color:#888;' },
+                _('Click to check'))
         ]),
-        ext || '',
+        extraEl || '',
         E('div', { id: t + '_sels', style: 'display:none;margin-top:10px;' },
-            E('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;' }, [
+            E('div', {
+                style: 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;'
+            }, [
                 E('label', {}, _('Version:')),
-                E('select', { class: 'cbi-input-select', id: t + '_tag',
-                    style: 'width:auto;max-width:200px;',
+                E('select', {
+                    id: t + '_tag',
+                    style: C.CSS.inputBg + ';width:auto;max-width:200px;cursor:pointer;',
                     change: function() { self._sel(t); }
                 }),
                 E('label', {}, _('File:')),
-                E('select', { class: 'cbi-input-select', id: t + '_file',
-                    style: 'width:auto;max-width:360px;'
+                E('select', {
+                    id: t + '_file',
+                    style: C.CSS.inputBg + ';width:auto;max-width:340px;cursor:pointer;'
                 }),
-                E('button', { class: 'btn cbi-button-apply', id: t + '_do',
+                E('button', { style: C.CSS.btn.success, id: t + '_do',
                     click: function() { self._do(t); }
                 }, _('Install Now'))
             ])
         ),
-        E('pre', { id: t + '_log', style: LOG_STYLE })
+        E('pre', { id: t + '_log', style: C.CSS.log })
     ]);
-};
+}
 
 return view.extend({
     handleSave: null, handleSaveApply: null, handleReset: null,
 
-    load: function() { return uci.load('lucky'); },
+    load: function() {
+        return Promise.all([
+            loadCommon(),
+            uci.load('lucky')
+        ]);
+    },
 
     render: function() {
         var self = this;
+        var C    = window.luckyUI;
+
         var m = ucig('mirror')       || 'github';
         var r = ucig('release_type') || 'stable';
         var v = ucig('variant')      || 'lucky';
 
-        var mirrorExt = E('div', { id: 'upd_retry',
-            style: 'display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;'
+        var mirrorExtra = E('div', { id: 'upd_retry',
+            style: 'display:none;margin-top:8px;'
         }, [
-            E('span', { style: 'font-size:13px;' }, _('Switch and retry:')),
-            buildSelect('upd_rmir', [
-                { v: 'github', l: _('GitHub (github.com/gdy666/lucky)') },
-                { v: 'r66666', l: _('Official (release.66666.plus)') }
-            ], m, function() { vis('upd_rext', this.value === 'r66666', 'flex'); }),
-            E('span', { id: 'upd_rext',
-                style: 'display:' + (m === 'r66666' ? 'flex' : 'none') + ';gap:8px;align-items:center;'
+            E('div', {
+                style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;'
             }, [
-                buildSelect('upd_rrel', [
-                    { v: 'stable', l: _('Stable') }, { v: 'beta', l: _('Beta') }
-                ], r),
-                buildSelect('upd_rvar', [
-                    { v: 'lucky', l: _('Standard') }, { v: 'wanji', l: _('Full-featured') }
-                ], v)
-            ]),
-            E('button', { class: 'btn cbi-button-action',
-                click: function() { self._chk('upd', true); }
-            }, _('Retry'))
+                E('span', { style: 'font-size:13px;color:#888;' },
+                    _('Switch mirror and retry:')),
+                mkSelect('upd_rmir', [
+                    { v: 'github', l: _('GitHub') },
+                    { v: 'r66666', l: _('Official') }
+                ], m, function() {
+                    C.setVis('upd_rext', this.value === 'r66666', 'flex');
+                }),
+                E('span', { id: 'upd_rext',
+                    style: 'display:' + (m === 'r66666' ? 'flex' : 'none') +
+                           ';gap:8px;align-items:center;'
+                }, [
+                    mkSelect('upd_rrel', [
+                        { v: 'stable', l: _('Stable') },
+                        { v: 'beta',   l: _('Beta')   }
+                    ], r),
+                    mkSelect('upd_rvar', [
+                        { v: 'lucky', l: _('Standard')     },
+                        { v: 'wanji', l: _('Full-featured') }
+                    ], v)
+                ]),
+                E('button', { style: C.CSS.btn.primary,
+                    click: function() { self._chk('upd', true); }
+                }, _('Retry'))
+            ])
         ]);
-
-        var logIds = ['upd_log', 'luci_log', 'auto_log'];
 
         var content = E('div', { class: 'cbi-map' }, [
             E('h2', {}, _('Lucky — Download & Update')),
-            infoBlock(),
-            buildSection('upd',  _('Lucky kernel Update'), _('Check Upstream'),    self, mirrorExt),
-            buildSection('luci', _('Luci App Update'),     _('Check Luci Version'), self),
-            E('div', { class: 'cbi-section' }, [
-                E('h3', {}, _('Auto Update Log')),
-                E('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;' }, [
-                    E('button', { class: 'btn cbi-button-action', click: function() {
-                        L.resolveDefault(api.autoLog(), {}).then(function(res) {
-                            var el = $('auto_log');
-                            if (!el) return;
-                            el.style.display = 'block';
-                            el.textContent = lucky_log.translate(
-                                res && res.log ? res.log : _('(No log)')
-                            );
-                            el.scrollTop = el.scrollHeight;
-                        });
-                    }}, _('View Log')),
-                    E('button', { class: 'btn cbi-button-remove', click: function() {
-                        if (!window.confirm(_('Clear all update cache and logs? This will delete /tmp/lucky_update.')))
-                            return;
+            buildInfoGrid(C),
+            buildUpdateSection(C, 'upd',  _('🔽 Lucky Core Update'),
+                _('Check Upstream'), self, mirrorExtra),
+            buildUpdateSection(C, 'luci', _('🔽 LuCI App Update'),
+                _('Check LuCI'), self),
+            C.buildCard(_('📋 View logs'), [
+                E('div', {
+                    style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;'
+                }, [
+                    E('button', { style: C.CSS.btn.primary, click: function() {
+                        L.resolveDefault(api.autoLog(''), {}).then(function(res) {
+                       var el = $('auto_log');
+                       if (!el) return;
+                       el.style.display = 'block';
+                       el.textContent   = lucky_log.translate(
+                           (res && res.log) ? res.log : _('(No log)')
+                       );
+                       el.scrollTop = el.scrollHeight;
+                   });
+               }}, _('Auto Update Log')),
+
+               E('button', { style: C.CSS.btn.primary, click: function() {
+                   L.resolveDefault(api.autoLog('run'), {}).then(function(res) {
+                       var el = $('auto_log');
+                       if (!el) return;
+                       el.style.display = 'block';
+                       el.textContent   = lucky_log.translate(
+                           (res && res.log) ? res.log : _('(No log)')
+                       );
+                       el.scrollTop = el.scrollHeight;
+                   });
+               }}, _('Runtime Log')),
+
+                    E('button', { style: C.CSS.btn.danger, click: function() {
+                        if (!window.confirm(_('Clear all update cache and logs?'))) return;
                         L.resolveDefault(api.cleanUpdate(), {}).then(function(res) {
                             var ok = res && res.result === 'ok';
-                            logIds.forEach(function(id) {
-                                var el = $(id);
-                                if (el) { el.textContent = ''; el.style.display = 'none'; }
+                            ['upd_log','luci_log','auto_log'].forEach(function(id) {
+                                var e = $(id);
+                                if (e) { e.textContent = ''; e.style.display = 'none'; }
                             });
-                            ui.addNotification(null, E('p', {},
-                                ok ? _('Cache cleared.') : _('Clear failed.')
-                            ), ok ? 'info' : 'error');
+                            C.showToast({
+                                ok:      ok,
+                                title:   ok ? _('Done') : _('Failed'),
+                                msg:     ok ? _('Cache cleared.') : _('Clear failed.'),
+                                timeout: ok ? 2000 : 0
+                            });
                         });
-                    }}, _('Clear log'))
+                    }}, _('Clear Cache'))
                 ]),
-                E('pre', { id: 'auto_log', style: LOG_STYLE })
+                E('pre', { id: 'auto_log', style: C.CSS.log })
             ])
         ]);
 
@@ -181,134 +230,132 @@ return view.extend({
     },
 
     _chk: function(t, retry) {
-        var self = this;
-        var btn = $(t + '_chk');
+        var self = this, C = window.luckyUI;
+        var btn  = $(t + '_chk');
         if (btn) btn.disabled = true;
-        vis(t + '_retry', false);
-        vis(t + '_sels', false);
-        vis(t + '_log',  false);
-        txt(t + '_stat', _('Checking…'), '#888');
+        C.setVis(t + '_retry', false);
+        C.setVis(t + '_sels',  false);
+        var lg = $(t + '_log');
+        if (lg) { lg.textContent = ''; }
+
+        C.setText(t + '_stat', _('Checking…'), '#888');
 
         var p = [];
         if (t === 'upd') {
-            var m = retry ? $('upd_rmir').value : (ucig('mirror')       || 'github');
-            var r = retry ? $('upd_rrel').value : (ucig('release_type') || 'stable');
-            var v = retry ? $('upd_rvar').value : (ucig('variant')      || 'lucky');
-            p = [m, m === 'r66666' ? r : '', m === 'r66666' ? v : ''];
+            var mi = retry ? $('upd_rmir').value : (ucig('mirror')       || 'github');
+            var re = retry ? $('upd_rrel').value : (ucig('release_type') || 'stable');
+            var va = retry ? $('upd_rvar').value : (ucig('variant')      || 'lucky');
+            p = [mi, mi === 'r66666' ? re : '', mi === 'r66666' ? va : ''];
         }
 
         L.resolveDefault(api[t + 'Chk'].apply(null, p), {}).then(function(res) {
             if (!res || res.result === 'error') {
                 if (btn) btn.disabled = false;
-                txt(t + '_stat', _('✗ Failed to start check'), '#dc3545');
-                if (t === 'upd') vis('upd_retry', true, 'flex');
+                C.setText(t + '_stat', _('✗ Failed to start check'), '#dc3545');
+                if (t === 'upd') C.setVis('upd_retry', true);
                 return;
             }
-            self._pollChk(t);
+            self._poll(t, 'chk');
         });
     },
 
-    _pollChk: function(t) {
-        var self = this, tk = t + '_ck', dots = 0;
+    _do: function(t) {
+        var self = this, C = window.luckyUI;
+        var tag  = ($(t + '_tag')  || {}).value;
+        var fn   = ($(t + '_file') || {}).value;
+        var btn  = $(t + '_do');
+        if (!tag || !fn)
+            return C.setText(t + '_stat',
+                _('✗ Please select version and file'), '#dc3545');
+
+        if (btn) btn.disabled = true;
+
+        var lg = $(t + '_log');
+        if (lg) { lg.textContent = ''; lg.style.display = 'none'; }
+
+        C.setText(t + '_stat', _('Starting…'), '#888');
+
+        L.resolveDefault(api[t + 'Do'](tag, fn), {}).then(function(res) {
+            if (!res || res.result !== 'ok') {
+                if (btn) btn.disabled = false;
+                C.setText(t + '_stat', _('✗ Failed'), '#dc3545');
+                return;
+            }
+            self._poll(t, 'do');
+        });
+    },
+
+    _poll: function(t, phase) {
+        var self = this, C = window.luckyUI;
+        var tk   = t + '_' + phase + '_tm', dots = 0;
         clearInterval(self[tk]);
+
         self[tk] = setInterval(function() {
             var dot = '.'.repeat(dots = dots % 3 + 1);
             api[t + 'Stat']().then(function(s) {
                 if (!s) return;
-                switch (s.status) {
-                    case 'idle':
-                    case 'checking':
-                        txt(t + '_stat', _('Checking') + dot, '#888');
-                        break;
-                    case 'ready':
-                        clearInterval(self[tk]);
-                        $(t + '_chk').disabled = false;
-                        txt(t + '_stat', _('✓ Found %d version(s)').format(s.count || 0), '#28a745');
+
+                var lg = $(t + '_log');
+                if (lg && s.log && s.log.trim()) {
+                    lg.style.display = 'block';
+                    lg.textContent   = lucky_log.translate(s.log);
+                    lg.scrollTop     = lg.scrollHeight;
+                }
+
+                var done = false;
+                if (phase === 'chk') {
+                    if (s.status === 'checking' || s.status === 'idle') {
+                        C.setText(t + '_stat', _('Checking') + dot, '#888');
+                    } else if (s.status === 'ready') {
+                        done = true;
+                        C.setText(t + '_stat',
+                            _('✓ Found %d version(s)').format(s.count || 0), '#28a745');
                         if (s.releases) {
                             self['_R' + t] = s.releases;
                             var ts = $(t + '_tag');
                             ts.innerHTML = '';
                             s.releases.forEach(function(r) {
-                                ts.appendChild(E('option', { value: r.tag }, r.tag));
+                                ts.appendChild(E('option', {
+                                    value: r.tag,
+                                    style: 'background:#fff;color:#333;'
+                                }, r.tag));
                             });
                             self._sel(t);
-                            vis(t + '_sels', true);
+                            C.setVis(t + '_sels', true);
                         }
-                        break;
-                    case 'error':
-                        clearInterval(self[tk]);
-                        $(t + '_chk').disabled = false;
-                        txt(t + '_stat',
-                            _('✗ %s').format(lucky_log.translate(s.msg || _('Error'))),
-                            '#dc3545'
-                        );
-                        if (t === 'upd') vis('upd_retry', true, 'flex');
-                        break;
-                }
-            });
-        }, 1000);
-    },
-
-    _do: function(t) {
-        var self = this;
-        var tag  = ($(t + '_tag')  || {}).value;
-        var fn   = ($(t + '_file') || {}).value;
-        var btn  = $(t + '_do');
-        if (!tag || !fn) return txt(t + '_stat', _('✗ Please select version and file'), '#dc3545');
-
-        if (btn) btn.disabled = true;
-        var lgEl = $(t + '_log');
-        if (lgEl) { lgEl.style.display = 'none'; lgEl.textContent = ''; }
-        txt(t + '_stat', _('Starting…'), '#888');
-
-        L.resolveDefault(api[t + 'Do'](tag, fn), {}).then(function(res) {
-            if (!res || res.result !== 'ok') {
-                if (btn) btn.disabled = false;
-                txt(t + '_stat', _('✗ Failed'), '#dc3545');
-                return;
-            }
-            self._pollDo(t);
-        });
-    },
-
-    _pollDo: function(t) {
-        var self = this, tk = t + '_do_tm', dots = 0;
-        clearInterval(self[tk]);
-        self[tk] = setInterval(function() {
-            var dot = '.'.repeat(dots = dots % 3 + 1);
-            api[t + 'Stat']().then(function(s) {
-                if (!s) return;
-                var lgEl = $(t + '_log');
-                if (s.log && s.log.trim() && lgEl) {
-                    lgEl.style.display = 'block';
-                    lgEl.textContent = lucky_log.translate(s.log);
-                    lgEl.scrollTop = lgEl.scrollHeight;
-                }
-                switch (s.status) {
-                    case 'idle':
-                    case 'downloading':
-                        txt(t + '_stat', _('Downloading') + dot, '#888');
-                        break;
-                    case 'installing':
-                        txt(t + '_stat', _('Installing') + dot, '#f0ad4e');
-                        break;
-                    case 'done':
-                        clearInterval(self[tk]);
-                        $(t + '_chk').disabled = false;
-                        $(t + '_do').disabled  = false;
-                        txt(t + '_stat', _('✓ Complete: %s').format(s.installed || ''), '#28a745');
+                    } else if (s.status === 'error') {
+                        done = true;
+                        C.setText(t + '_stat',
+                            _('✗ %s').format(
+                                lucky_log.translate(s.msg || _('Error'))
+                            ), '#dc3545');
+                        if (t === 'upd') C.setVis('upd_retry', true);
+                    }
+                } else {
+                    if (s.status === 'idle' || s.status === 'downloading') {
+                        C.setText(t + '_stat', _('Downloading') + dot, '#888');
+                    } else if (s.status === 'installing') {
+                        C.setText(t + '_stat', _('Installing') + dot, '#f0ad4e');
+                    } else if (s.status === 'done') {
+                        done = true;
+                        C.setText(t + '_stat',
+                            _('✓ Complete: %s').format(s.installed || ''), '#28a745');
                         self._info();
-                        break;
-                    case 'error':
-                        clearInterval(self[tk]);
-                        $(t + '_chk').disabled = false;
-                        $(t + '_do').disabled  = false;
-                        txt(t + '_stat',
-                            _('✗ %s').format(lucky_log.translate(s.msg || _('Error'))),
-                            '#dc3545'
-                        );
-                        if (t === 'upd') vis('upd_retry', true, 'flex');
-                        break;
+                    } else if (s.status === 'error') {
+                        done = true;
+                        C.setText(t + '_stat',
+                            _('✗ %s').format(
+                                lucky_log.translate(s.msg || _('Error'))
+                            ), '#dc3545');
+                        if (t === 'upd') C.setVis('upd_retry', true);
+                    }
+                }
+
+                if (done) {
+                    clearInterval(self[tk]);
+                    [t + '_chk', t + '_do'].forEach(function(id) {
+                        var e = $(id); if (e) e.disabled = false;
+                    });
                 }
             });
         }, 1000);
@@ -316,28 +363,38 @@ return view.extend({
 
     _sel: function(t) {
         var rels = this['_R' + t] || [];
-        var tv   = ($(t + '_tag')  || {}).value;
+        var tv   = ($(t + '_tag') || {}).value;
         var fs   = $(t + '_file');
         if (!tv || !fs) return;
-        var r = rels.filter(function(x) { return x.tag === tv; })[0];
+        var rel  = rels.filter(function(x) { return x.tag === tv; })[0];
         fs.innerHTML = '';
-        if (!r || !r.files) return;
+        if (!rel || !rel.files) return;
         var best = 0;
-        r.files.forEach(function(f, i) {
-            fs.appendChild(E('option', { value: f.name }, f.name));
-            if (f.name === r.best) best = i;
+        rel.files.forEach(function(f, i) {
+            fs.appendChild(E('option', {
+                value: f.name,
+                style: 'background:#fff;color:#333;'
+            }, f.name));
+            if (f.name === rel.best) best = i;
         });
         fs.selectedIndex = best;
     },
 
     _info: function() {
-        L.resolveDefault(api.info(), {}).then(function(sys) {
-            if (!sys) return;
-            var map = { iv: sys.version, il: sys.luci_version, ir: sys.variant,
-                        ia: sys.arch,    ip: sys.binpath,       ic: sys.configdir };
-            Object.keys(map).forEach(function(k) {
-                var e = $(k);
-                if (e) { e.textContent = map[k] || _('Unknown'); e.style.color = ''; }
+        L.resolveDefault(api.info(), {}).then(function(s) {
+            if (!s) return;
+            [
+                ['ii_ver',  s.version      ],
+                ['ii_luci', s.luci_version ],
+                ['ii_var',  s.variant      ],
+                ['ii_arch', s.arch         ],
+                ['ii_bin',  s.binpath      ],
+                ['ii_cfg',  s.configdir    ]
+            ].forEach(function(kv) {
+                var e = $(kv[0]);
+                if (!e) return;
+                e.textContent     = kv[1] || _('Unknown');
+                e.style.fontStyle = '';
             });
         });
     }

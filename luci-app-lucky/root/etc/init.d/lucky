@@ -3,29 +3,49 @@ START=99
 STOP=15
 USE_PROCD=1
 
-CONF=lucky
-PROG=/usr/bin/lucky
-CONFDIR=/etc/config/lucky.daji
 CRON_FILE=/etc/crontabs/root
 CRON_TAG=luci-app-lucky-autoupdate
 UPDATE_SCRIPT=/usr/libexec/lucky-update.sh
-
-uci_get() { uci -q get "$CONF.$CONF.$1" 2>/dev/null || echo "${2}"; }
+LOGFILE=/tmp/lucky_update/lucky-start.log
 
 log_msg() { logger -t lucky -p daemon.info "$1"; }
 
-sync_cron() {
-    local auto_update interval new_entry
+init_config() {
+    local v key var def kv rest
 
-    auto_update=$(uci_get auto_update 0)
-    interval=$(uci_get update_interval 7)
+    for kv in \
+        "enabled=ENABLED=0" \
+        "binpath=PROG=/usr/bin/lucky" \
+        "configdir=CONFDIR=/etc/config/lucky.daji" \
+        "port=PORT=16601" \
+        "safe=SAFE=" \
+        "delay=DELAY=60" \
+        "respawn_threshold=RESPAWN_THRESHOLD=3600" \
+        "respawn_timeout=RESPAWN_TIMEOUT=30" \
+        "respawn_retry=RESPAWN_RETRY=5" \
+        "auto_update=AUTO_UPDATE=0" \
+        "update_interval=UPDATE_INTERVAL=7"
+    do
+        key="${kv%%=*}"
+        rest="${kv#*=}"
+        var="${rest%%=*}"
+        def="${rest#*=}"
+
+        v="$(uci -q get lucky.lucky.$key)"
+        eval "$var=\"\${v:-$def}\""
+    done
+
+    mkdir -p "$CONFDIR" "${LOGFILE%/*}"
+}
+
+sync_cron() {
+    init_config
 
     sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
 
-    if [ "$auto_update" = "1" ]; then
-        new_entry="0 3 */${interval} * * $UPDATE_SCRIPT >> /tmp/lucky_update/autoupdate.log 2>&1 #${CRON_TAG}"
-        echo "$new_entry" >> "$CRON_FILE"
-        log_msg "Auto update cron set: every ${interval} day(s)"
+    if [ "$AUTO_UPDATE" = "1" ]; then
+        echo "0 3 */${UPDATE_INTERVAL} * * $UPDATE_SCRIPT >> /tmp/lucky_update/autoupdate.log 2>&1 #${CRON_TAG}" >> "$CRON_FILE"
+        log_msg "Auto update cron set: every ${UPDATE_INTERVAL} day(s)"
     else
         log_msg "Auto update cron removed."
     fi
@@ -34,15 +54,11 @@ sync_cron() {
 }
 
 start_service() {
-    local enabled binpath configdir port safe delay
+    init_config
 
-    enabled=$(uci_get enabled 0)
-    [ "$enabled" = "1" ] || { log_msg "Lucky is disabled, skipping start."; return 0; }
+    [ "$ENABLED" = "1" ] || { log_msg "Lucky is disabled, skipping start."; return 0; }
 
-    binpath=$(uci_get binpath "$PROG")
-    configdir=$(uci_get configdir "$CONFDIR")
-
-    if [ ! -x "$binpath" ]; then
+    if [ ! -x "$PROG" ]; then
         if [ -x "$UPDATE_SCRIPT" ] && [ ! -f /tmp/lucky_downloading ]; then
             touch /tmp/lucky_downloading
             log_msg "Lucky binary not found, starting automatic download..."
@@ -51,36 +67,32 @@ start_service() {
         return 0
     fi
 
-    port=$(uci_get port 16601)
-    safe=$(uci_get safe "" | tr -d '[:space:]')
-    delay=$(uci_get delay 60)
-
-    [ -d "$configdir" ] || mkdir -p "$configdir"
-
     [ "$(awk -F. '{print $1}' /proc/uptime)" -lt 120 ] && {
-        log_msg "Delaying start by ${delay}s..."
-        sleep "$delay"
+        log_msg "Delaying start by ${DELAY}s..."
+        sleep "$DELAY"
     }
 
-    "$binpath" -setconf -key AdminWebListenPort -value "$port" -cd "$configdir" >/dev/null 2>&1
+    "$PROG" -setconf -key AdminWebListenPort -value "$PORT" -cd "$CONFDIR" >/dev/null 2>&1
 
-    if [ -z "$safe" ]; then
-        "$binpath" -rCancelSafeURL -cd "$configdir" >/dev/null 2>&1
+    if [ -z "$SAFE" ]; then
+        "$PROG" -rCancelSafeURL -cd "$CONFDIR" >/dev/null 2>&1
     else
-        "$binpath" -setconf -key SafeURL -value "$safe" -cd "$configdir" >/dev/null 2>&1
+        "$PROG" -setconf -key SafeURL -value "$SAFE" -cd "$CONFDIR" >/dev/null 2>&1
     fi
 
+    : > "$LOGFILE"
+
     procd_open_instance
-    procd_set_param command "$binpath" -cd "$configdir"
-    procd_set_param respawn 3600 30 5
-    procd_set_param stderr 1
+    procd_set_param command /bin/sh -c \
+        "exec \"$PROG\" -cd \"$CONFDIR\" >> \"$LOGFILE\" 2>&1"
+    procd_set_param respawn "$RESPAWN_THRESHOLD" "$RESPAWN_TIMEOUT" "$RESPAWN_RETRY"
     procd_close_instance
 
-    log_msg "Lucky started (port=${port} configdir=${configdir})"
+    log_msg "Lucky started (port=${PORT} configdir=${CONFDIR})"
 }
 
 stop_service() { log_msg "Lucky stopped."; }
 
-reload_service() { stop; start; sync_cron; }
+reload_service() { sync_cron; }
 
 service_triggers() { procd_add_reload_trigger lucky; }
