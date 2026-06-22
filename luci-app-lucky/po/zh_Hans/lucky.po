@@ -383,8 +383,8 @@ msgstr "LuCI 应用更新"
 msgid "Check LuCI"
 msgstr "检查 LuCI"
 
-msgid "📋 View logs"
-msgstr "📋 查看日志"
+msgid "View logs"
+msgstr "查看日志"
 
 msgid "Auto Update Log"
 msgstr "自动更新日志"

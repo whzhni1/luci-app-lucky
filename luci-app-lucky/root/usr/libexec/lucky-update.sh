@@ -400,6 +400,7 @@ cmd_download_luci() {
     log "Installing luci package..."
     install_luci_pkg "$pm" "$dl" || die "luci" "Install failed"
     rm -f "$dl"
+
     local lang
     lang=$(
         for f in /usr/lib/lua/luci/i18n/*.lmo; do
@@ -408,13 +409,11 @@ cmd_download_luci() {
             echo "${tmp##*.}"
         done | sort | uniq -c | sort -nr | head -n1 | awk '{print $2}'
     )
-    log "Detected language: ${lang:-none}"
 
     if [ -n "$lang" ] && [ "$lang" != "en" ] && [ -f "$LUCI_RELEASES_FILE" ]; then
         local lf lu
         lf=$(grep -oE '"[^"]*i18n[^"]*'"$lang"'[^"]*"' "$LUCI_RELEASES_FILE" \
              | tr -d '"' | head -1)
-        log "Found i18n package: ${lf:-none}"
         if [ -n "$lf" ]; then
             lu=$(grep -o "\"name\":\"${lf}\",\"url\":\"[^\"]*\"" "$LUCI_RELEASES_FILE" \
                  | grep -o '"url":"[^"]*"' | cut -d'"' -f4 | head -1)
@@ -423,13 +422,9 @@ cmd_download_luci() {
                 local ldl="$UPDATE_DIR/$lf"
                 http_get "$lu" "$ldl" && install_luci_pkg "$pm" "$ldl" \
                     && log "Language pack installed: $lf" \
-                    || log "WARN: Lang pack failed"
+                    || log "Language pack installation failed"
                 rm -f "$ldl"
-            else
-                log "WARN: URL not found for $lf"
             fi
-        else
-            log "No i18n package matched for lang: $lang"
         fi
     fi
 
