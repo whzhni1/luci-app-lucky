@@ -58,9 +58,10 @@ wget -q -O - "https://gitlab.com/whzhni/tailscale/-/raw/main/Auto_Install_Script
 
 - **自动更新**：开启后，插件会定期检查官方源的新版本，自动升级或手动在插件页面检查更新。
 - **手动更新**：在 Luci 界面点击“检查更新”按钮即可。
-- **进程管理**：若 Lucky 进程异常退出，`Respawn` 会在30秒内将其重新启动，1小时内连续5次启动失败则放弃启动，无需人工干预。
+- **进程管理**：若 Lucky 进程异常退出，`Respawn` 会在30秒内将其重新启动，1小时内连续5次启动失败则放弃启动，无需人工干预,可在设置页面自定义设置。
 
 ---
+![状态](images/lucky_status.png)
 ![设置](images/lucky_config.png)
 ![更新](images/lucky_update.png)
 
