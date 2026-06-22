@@ -153,6 +153,21 @@ msgstr "密码已重置为666，服务正在重启…"
 msgid "Reset failed, please check the log."
 msgstr "重置失败，请检查日志。"
 
+msgid "Uptime > 0s always resets the retry counter"
+msgstr "运行时间 > 0秒时总是重置重试计数器"
+
+msgid "Uptime exceeds %ss, retry counter resets"
+msgstr "运行时间超过 %s秒，重试计数器重置"
+
+msgid "Wait %ss before restarting after a crash"
+msgstr "崩溃后等待 %s秒再重启"
+
+msgid "Unlimited retries"
+msgstr "无限重试"
+
+msgid "Stop after %s restart(s), 0 No limits"
+msgstr "在 %s 次重启后停止，0 无限"
+
 msgid "Reset password"
 msgstr "重置密码"
 
@@ -251,6 +266,18 @@ msgstr "标准版 (lucky)"
 
 msgid "Full-featured (wanji)"
 msgstr "全功能版 (wanji)"
+
+msgid "🔁 Respawn Policy"
+msgstr "🔁 重启策略"
+
+msgid "Crash Threshold (s)"
+msgstr "崩溃阈值（秒）"
+
+msgid "Respawn Delay (s)"
+msgstr "重启延迟（秒）"
+
+msgid "Max Retries"
+msgstr "最大重试次数"
 
 msgid "🕐 Auto Update"
 msgstr "🕐 自动更新"
