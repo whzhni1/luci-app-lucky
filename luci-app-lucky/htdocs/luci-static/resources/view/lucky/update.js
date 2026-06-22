@@ -59,7 +59,7 @@ function buildInfoGrid(C) {
         [_('Variant'),       'ii_var'],  [_('Architecture'), 'ii_arch'],
         [_('Binary Path'),   'ii_bin'],  [_('Data Dir'),     'ii_cfg']
     ];
-    return C.buildCard(_('📊 Current Installation'),
+    return C.buildCard('📊 ' + _('Current Installation'),
         E('div', { style: [
             'display:grid',
             'grid-template-columns:repeat(3,1fr)',
@@ -172,11 +172,11 @@ return view.extend({
         var content = E('div', { class: 'cbi-map' }, [
             E('h2', {}, _('Lucky — Download & Update')),
             buildInfoGrid(C),
-            buildUpdateSection(C, 'upd',  _('🔽 Lucky Core Update'),
+            buildUpdateSection(C, 'upd', '🔽 ' + _('Lucky Core Update'),
                 _('Check Upstream'), self, mirrorExtra),
-            buildUpdateSection(C, 'luci', _('🔽 LuCI App Update'),
+            buildUpdateSection(C, 'luci', '🔽 ' + _('LuCI App Update'),
                 _('Check LuCI'), self),
-            C.buildCard(_('📋 View logs'), [
+            C.buildCard('📋 ' + _('Auto Update Log'), [
                 E('div', {
                     style: 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;'
                 }, [

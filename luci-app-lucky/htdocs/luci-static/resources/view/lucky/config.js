@@ -116,7 +116,7 @@ return view.extend({
         var mapEl = E('div', { class: 'cbi-map' }, [
             E('h2', {}, _('Lucky — Settings')),
 
-            C.buildCard(_('⚙ Basic Service'), [
+            C.buildCard('⚙ ' + _('Basic Service'), [
                 C.buildFormRow('text', 'port', _('Web UI Port'),
                     cfg.port || '16601',
                     _('Default: 16601'),
@@ -138,7 +138,7 @@ return view.extend({
             ]),
 
             E('div', { style: C.CSS.gridAuto(280, 16) }, [
-                C.buildCard(_('📁 Path & Architecture'), [
+                C.buildCard('📁 ' + _('Path & Architecture'), [
                     C.buildFormRow('text', 'configdir', _('Data Directory'),
                         cfg.configdir || '/etc/config/lucky.daji',
                         _('Lucky runtime data directory')),
@@ -153,7 +153,7 @@ return view.extend({
                         ]),
                         { style: 'width:120px;' })
                 ]),
-                C.buildCard(_('🔄 Download & Update'), [
+                C.buildCard('🔄 ' + _('Download & Update'), [
                     C.buildFormRow('select', 'mirror', _('Download Mirror'),
                         cfg.mirror || 'github', null, [
                             { v: 'github', l: _('GitHub (github.com/gdy666/lucky)') },
@@ -175,7 +175,7 @@ return view.extend({
             ]),
 
             E('div', { style: C.CSS.gridAuto(280, 16) }, [
-                C.buildCard(_('🔁 Respawn Policy'), [
+                C.buildCard('🔁 ' +_('Respawn Policy'), [
                     C.buildFormRow('number', 'respawn_threshold', _('Crash Threshold (s)'),
                         cfg.respawn_threshold || '3600',
                         descThreshold,
@@ -189,7 +189,7 @@ return view.extend({
                         descRetry,
                         { style: 'width:80px;', min: '0' })
                 ]),
-                C.buildCard(_('🕐 Auto Update'), [
+                C.buildCard('🕐 ' + _('Auto Update'), [
                     C.buildFormRow('toggle', 'auto_update', _('Enable Auto Update'),
                         cfg.auto_update || '0',
                         _('Periodically check and install the latest version')),
