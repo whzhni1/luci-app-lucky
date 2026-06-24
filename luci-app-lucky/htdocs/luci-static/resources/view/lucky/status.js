@@ -77,6 +77,9 @@ function buildLinkBtn(label, url) {
 
 function buildMissingCard(C) {
     var logEl  = E('pre', { style: C.CSS.log });
+    var barEl  = E('div', { style: 'display:none;margin-top:8px;' }, [
+        C.buildBar('bar_missing')
+    ]);
     var statEl = E('span', {
         style: 'font-size:13px;color:#888;margin-left:8px;'
     }, '');
@@ -88,47 +91,58 @@ function buildMissingCard(C) {
             dlBtn.disabled     = true;
             statEl.textContent = _('Starting download…');
             statEl.style.color = '#888';
+            barEl.style.display = 'block';
+            C.setBar('bar_missing', 0);
+
             L.resolveDefault(api.download(), {}).then(function(res) {
                 if (!res || res.result !== 'ok') {
-                    dlBtn.disabled     = false;
-                    statEl.textContent = _('Failed to start, please check log.');
-                    statEl.style.color = '#c62828';
+                    dlBtn.disabled      = false;
+                    barEl.style.display = 'none';
+                    statEl.textContent  = _('Failed to start, please check log.');
+                    statEl.style.color  = '#c62828';
                     return;
                 }
                 statEl.textContent  = _('Downloading…');
                 logEl.style.display = 'block';
-                var dots = 0, lastLen = 0;
+                var dots = 0, lastLog = '';
                 var timer = setInterval(function() {
                     var dot = '.'.repeat(dots = dots % 3 + 1);
                     L.resolveDefault(api.autoLog({ type: '' }), {}).then(function(r) {
-                        var text  = lucky_log.translate(
-                            (r && r.log) ? r.log : '');
-                        var lines = text
-                            ? text.split('\n').filter(function(l) {
-                                return l.trim(); })
-                            : [];
-                        if (!lines.length) {
-                            statEl.textContent = _('Waiting') + dot;
-                            return;
+                        var raw  = (r && r.log) ? r.log : '';
+                        var text = lucky_log.translate(raw);
+
+                        if (text && text !== lastLog) {
+                            var atBottom = logEl.scrollTop + logEl.clientHeight
+                                           >= logEl.scrollHeight - 10;
+                            logEl.textContent = text;
+                            lastLog = text;
+                            if (atBottom) logEl.scrollTop = logEl.scrollHeight;
                         }
-                        if (lines.length > lastLen) {
-                            if (!lastLen) logEl.textContent = '';
-                            logEl.textContent += lines.slice(lastLen).join('\n') + '\n';
-                            lastLen = lines.length;
-                            logEl.scrollTop = logEl.scrollHeight;
+
+                        // 解析进度
+                        var lines = raw.split('\n');
+                        for (var i = lines.length - 1; i >= 0; i--) {
+                            var m = lines[i].match(/PROGRESS:(\d+)/);
+                            if (m) { C.setBar('bar_missing', parseInt(m[1])); break; }
                         }
-                        var last = lines[lines.length - 1] || '';
+
+                        var last = lines.filter(function(l) {
+                            return l.trim();
+                        });
+                        last = last[last.length - 1] || '';
+
                         if (last.indexOf('complete') !== -1 ||
                             last.indexOf(_('Complete')) !== -1) {
                             clearInterval(timer);
+                            C.setBar('bar_missing', 100);
                             if (cardEl) cardEl.style.display = 'none';
                             C.showToast({
-                                ok: true,
-                                msg: _('Lucky core downloaded successfully. Service is starting…'),
+                                ok:      true,
+                                msg:     _('Lucky core downloaded successfully. Service is starting…'),
                                 timeout: 3000
                             });
                         } else if (last.indexOf('ERROR') !== -1 ||
-                                   last.indexOf('error') !== -1) {
+                                   last.indexOf('error')  !== -1) {
                             clearInterval(timer);
                             dlBtn.disabled     = false;
                             statEl.textContent = _('✗ Download failed, see log below.');
@@ -158,6 +172,7 @@ function buildMissingCard(C) {
         E('div', {
             style: 'display:flex;align-items:center;flex-wrap:wrap;gap:8px;'
         }, [ dlBtn, statEl ]),
+        barEl,
         logEl
     ]);
     return cardEl;

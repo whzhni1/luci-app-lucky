@@ -114,6 +114,9 @@ function buildUpdateSection(C, t, title, chkLabel, self, extraEl) {
                 }, _('Install Now'))
             ])
         ),
+        E('div', { id: t + '_bar_wrap', style: 'display:none;margin-top:8px;' }, [
+            C.buildBar(t + '_bar')
+        ]),
         E('pre', { id: t + '_log', style: C.CSS.log })
     ]);
 }
@@ -235,9 +238,10 @@ return view.extend({
         if (btn) btn.disabled = true;
         C.setVis(t + '_retry', false);
         C.setVis(t + '_sels',  false);
+        C.setVis(t + '_bar_wrap', false);
+        C.setBar(t + '_bar', 0);
         var lg = $(t + '_log');
         if (lg) { lg.textContent = ''; }
-
         C.setText(t + '_stat', _('Checking…'), '#888');
 
         var p = [];
@@ -267,12 +271,9 @@ return view.extend({
         if (!tag || !fn)
             return C.setText(t + '_stat',
                 _('✗ Please select version and file'), '#dc3545');
-
         if (btn) btn.disabled = true;
-
-        var lg = $(t + '_log');
-        if (lg) { lg.textContent = ''; lg.style.display = 'none'; }
-
+        C.setVis(t + '_bar_wrap', true);
+        C.setBar(t + '_bar', 0);
         C.setText(t + '_stat', _('Starting…'), '#888');
 
         L.resolveDefault(api[t + 'Do'](tag, fn), {}).then(function(res) {
@@ -297,9 +298,18 @@ return view.extend({
 
                 var lg = $(t + '_log');
                 if (lg && s.log && s.log.trim()) {
-                    lg.style.display = 'block';
-                    lg.textContent   = lucky_log.translate(s.log);
-                    lg.scrollTop     = lg.scrollHeight;
+                    var translated = lucky_log.translate(s.log);
+                    if (lg.textContent !== translated) {
+                        var atBottom = lg.scrollTop + lg.clientHeight >= lg.scrollHeight - 10;
+                        lg.style.display = 'block';
+                        lg.textContent   = translated;
+                        if (atBottom) lg.scrollTop = lg.scrollHeight;
+                    }
+                    var lines = s.log.split('\n');
+                    for (var i = lines.length - 1; i >= 0; i--) {
+                        var m = lines[i].match(/PROGRESS:(\d+)/);
+                        if (m) { C.setBar(t + '_bar', parseInt(m[1])); break; }
+                    }
                 }
 
                 var done = false;
@@ -332,12 +342,13 @@ return view.extend({
                         if (t === 'upd') C.setVis('upd_retry', true);
                     }
                 } else {
-                    if (s.status === 'idle' || s.status === 'downloading') {
+                    if (s.status === 'downloading' || s.status === 'idle') {
                         C.setText(t + '_stat', _('Downloading') + dot, '#888');
                     } else if (s.status === 'installing') {
                         C.setText(t + '_stat', _('Installing') + dot, '#f0ad4e');
                     } else if (s.status === 'done') {
                         done = true;
+                        C.setBar(t + '_bar', 100);
                         C.setText(t + '_stat',
                             _('✓ Complete: %s').format(s.installed || ''), '#28a745');
                         self._info();

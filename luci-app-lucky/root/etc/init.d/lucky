@@ -30,7 +30,6 @@ init_config() {
         rest="${kv#*=}"
         var="${rest%%=*}"
         def="${rest#*=}"
-
         v="$(uci -q get lucky.lucky.$key)"
         eval "$var=\"\${v:-$def}\""
     done
@@ -41,12 +40,19 @@ init_config() {
 sync_cron() {
     init_config
 
-    sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
+    local current
+    current=$(grep "$CRON_TAG" "$CRON_FILE" 2>/dev/null)
 
     if [ "$AUTO_UPDATE" = "1" ]; then
-        echo "0 3 */${UPDATE_INTERVAL} * * $UPDATE_SCRIPT >> /tmp/lucky_update/autoupdate.log 2>&1 #${CRON_TAG}" >> "$CRON_FILE"
+        case "$current" in
+            *"*/${UPDATE_INTERVAL} * * $UPDATE_SCRIPT"*) return 0 ;;
+        esac
+        sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
+        echo "0 3 */${UPDATE_INTERVAL} * * $UPDATE_SCRIPT #${CRON_TAG}" >> "$CRON_FILE"
         log_msg "Auto update cron set: every ${UPDATE_INTERVAL} day(s)"
     else
+        [ -z "$current" ] && return 0
+        sed -i "/${CRON_TAG}/d" "$CRON_FILE" 2>/dev/null
         log_msg "Auto update cron removed."
     fi
 
@@ -56,16 +62,15 @@ sync_cron() {
 start_service() {
     init_config
 
-    [ "$ENABLED" = "1" ] || { log_msg "Lucky is disabled, skipping start."; return 0; }
-
     if [ ! -x "$PROG" ]; then
-        if [ -x "$UPDATE_SCRIPT" ] && [ ! -f /tmp/lucky_downloading ]; then
-            touch /tmp/lucky_downloading
-            log_msg "Lucky binary not found, starting automatic download..."
-            setsid sh -c "$UPDATE_SCRIPT >/dev/null 2>&1; rm -f /tmp/lucky_downloading" &
-        fi
+        [ -x "$UPDATE_SCRIPT" ] && {
+            log_msg "Lucky binary not found, triggering download..."
+            setsid "$UPDATE_SCRIPT" >/dev/null 2>&1 &
+        }
         return 0
     fi
+
+    [ "$ENABLED" = "1" ] || { log_msg "Lucky is disabled, skipping start."; return 0; }
 
     [ "$(awk -F. '{print $1}' /proc/uptime)" -lt 120 ] && {
         log_msg "Delaying start by ${DELAY}s..."

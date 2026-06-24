@@ -1,5 +1,5 @@
 #!/bin/sh
-# luck 更新脚本 v2.1
+# lucky 更新脚本 v2.1
 
 UPDATE_DIR="/tmp/lucky_update"
 STATUS_FILE="$UPDATE_DIR/status"
@@ -36,28 +36,14 @@ write_status() {
 
 die() { log "ERROR: $2"; write_status "$1" "error:$2"; exit 1; }
 
-_http_cmd() {
-    if   command -v wget >/dev/null 2>&1; then echo "wget"
-    elif command -v curl >/dev/null 2>&1; then echo "curl"
-    fi
-}
-
 http_get() {
     local url="$1" out="$2" t="${3:-60}"
-    case "$(_http_cmd)" in
-        wget) wget -qO "$out" --timeout="$t" "$url" ;;
-        curl) curl -fsSL --connect-timeout 15 --max-time "$t" -o "$out" "$url" ;;
-        *)    return 1 ;;
-    esac
+    curl -fsSL --connect-timeout 15 --max-time "$t" -o "$out" "$url"
 }
 
 http_get_var() {
     local url="$1" t="${2:-30}"
-    case "$(_http_cmd)" in
-        wget) wget -qO- --timeout="$t" "$url" 2>/dev/null ;;
-        curl) curl -fsSL --connect-timeout 15 --max-time "$t" "$url" 2>/dev/null ;;
-        *)    return 1 ;;
-    esac
+    curl -fsSL --connect-timeout 15 --max-time "$t" "$url" 2>/dev/null
 }
 
 detect_pm() {
@@ -143,7 +129,6 @@ fetch_api_lines() {
         | sed 's/": "/":"/g; s/": /:/g' \
         | grep -oE '"tag_name":"[^"]*"|https://[^"]*'"${ext}" \
         > "$out"
-    log "Extracted: $(wc -l < "$out" | tr -d ' ')"
 }
 
 parse_release_lines() {
@@ -183,7 +168,6 @@ parse_release_lines() {
 
 fetch_github_releases() {
     local arch="$1" url="${GITHUB_API}?per_page=100"
-    log "Fetching GitHub API: $url"
     local raw; raw=$(http_get_var "$url")
     { [ -z "$raw" ] || ! echo "$raw" | grep -q '"tag_name"'; } \
         && die "" "GitHub API failed or invalid response"
@@ -198,12 +182,10 @@ fetch_github_releases() {
 fetch_r66666_tags() {
     local release_type="$1" out="$2"
     local tmp="$UPDATE_DIR/r66666_root.html"
-    log "Fetching mirror index: ${MIRROR_BASE}/"
     http_get "${MIRROR_BASE}/" "$tmp" || die "" "Failed to fetch mirror index"
     [ -s "$tmp" ]                     || die "" "Empty mirror index"
 
     local all; all=$(parse_dir_listing "$tmp" | grep '^v' | grep '/$' | sed 's|/$||')
-    log "Tags: $(echo "$all" | tr '\n' ' ')"
     case "$release_type" in
         stable) echo "$all" | grep -E  '^v[0-9]+\.[0-9]+\.[0-9]+$' ;;
         beta)   echo "$all" | grep -Ev '^v[0-9]+\.[0-9]+\.[0-9]+$' ;;
@@ -342,10 +324,44 @@ do_download() {
 
     init_dir
     write_status "$prefix" "downloading:$tag"
-    log "Downloading: $filename from: $url"
+    log "Downloading: $filename"
+    log "URL: $url"
+
     local f="$UPDATE_DIR/$filename"
-    http_get "$url" "$f" || die "$prefix" "Download failed: $url"
-    [ -s "$f" ]          || die "$prefix" "Downloaded file empty"
+
+    local total_size
+    total_size=$(curl -sIL --connect-timeout 15 "$url" 2>/dev/null \
+        | grep -i content-length | tail -1 | awk '{print $2}' | tr -d '\r')
+
+    if [ -n "$total_size" ] && [ "$total_size" -gt 0 ] 2>/dev/null; then
+        log "Total size: $(awk "BEGIN{printf \"%.1fM\", $total_size/1048576}")"
+        (
+            while true; do
+                sleep 2
+                [ -f "$f" ] || continue
+                downloaded=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
+                [ "${downloaded:-0}" -gt 0 ] || continue
+                pct=$(awk "BEGIN{printf \"%d\", $downloaded*100/$total_size}")
+                dl_mb=$(awk "BEGIN{printf \"%.1f\", $downloaded/1048576}")
+                total_mb=$(awk "BEGIN{printf \"%.1f\", $total_size/1048576}")
+                log "PROGRESS:${pct}%"
+                [ "$pct" -ge 100 ] && break
+            done
+        ) &
+        local progress_pid=$!
+
+        http_get "$url" "$f" 300
+        local ret=$?
+        kill "$progress_pid" 2>/dev/null
+        wait "$progress_pid" 2>/dev/null
+    else
+        log "Total size: unknown"
+        http_get "$url" "$f" 300
+        local ret=$?
+    fi
+
+    [ $ret -ne 0 ] && die "$prefix" "Download failed: $url"
+    [ -s "$f" ]    || die "$prefix" "Downloaded file empty"
     log "Download complete: $(du -sh "$f" 2>/dev/null | cut -f1)"
     echo "$f"
 }
@@ -492,9 +508,9 @@ cmd_auto() {
 
 case "$1" in
     check)         init_dir; LOG_TO_FILE="$LOG_FILE";      : > "$LOG_FILE";      cmd_check "$2" "$3" "$4" "$5" ;;
-    download)      init_dir; LOG_TO_FILE="$LOG_FILE";      : > "$LOG_FILE";      cmd_download "$2" "$3" "$4" ;;
+    download)      init_dir; LOG_TO_FILE="$LOG_FILE";                            cmd_download "$2" "$3" "$4" ;;
     check_luci)    init_dir; LOG_TO_FILE="$LUCI_LOG_FILE"; : > "$LUCI_LOG_FILE"; cmd_check_luci ;;
-    download_luci) init_dir; LOG_TO_FILE="$LUCI_LOG_FILE"; : > "$LUCI_LOG_FILE"; cmd_download_luci "$2" "$3" ;;
+    download_luci) init_dir; LOG_TO_FILE="$LUCI_LOG_FILE";                       cmd_download_luci "$2" "$3" ;;
     auto|"")       init_dir; LOG_TO_FILE="$AUTO_LOG";      : > "$AUTO_LOG";      cmd_auto ;;
     detect_arch)   detect_arch ;;
     detect_pm)     detect_pm ;;

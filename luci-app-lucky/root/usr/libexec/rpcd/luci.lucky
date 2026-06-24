@@ -43,8 +43,8 @@ function getLuciVersion() {
 }
 
 function runTask(prefix, state, args) {
-    let sf = uf(prefix + 'status'), lf = uf(prefix + 'log');
-    sys(`mkdir -p '${DIR}' && rm -f '${sf}' '${lf}'`);
+    let sf = uf(prefix + 'status');
+    sys(`mkdir -p '${DIR}' && rm -f '${sf}'`);
     let f = open(sf, 'w');
     if (f) { f.write(state); f.close(); }
     sys(`setsid '${SCRIPT}' ${args} >/dev/null 2>&1 &`);
@@ -57,11 +57,12 @@ function getTaskStatus(prefix, doneTag) {
 
     let st  = trim(read(sf));
     let log = exists(uf(prefix + 'log'))
-            ? exec(`tail -n 40 '${uf(prefix + 'log')}' 2>/dev/null`)
+            ? exec(`cat '${uf(prefix + 'log')}' 2>/dev/null`)
             : '';
 
-    if (st === 'checking' || st === 'downloading' || st === 'installing')
-        return { status: st, log };
+    for (let s in ['checking', 'downloading', 'installing'])
+        if (substr(st, 0, length(s)) === s)
+            return { status: s, log };
 
     if (substr(st, 0, 6) === 'ready:') {
         let rel = null;

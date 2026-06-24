@@ -4,99 +4,73 @@
 
 return baseclass.extend({
     _map: [
-        // init / check
-        ['Check:',                          _('Check:')],
-        ['checking',                        _('Checking...')],
-        ['Fetching GitHub API:',            _('Fetching GitHub API:')],
-        ['GitHub API failed',               _('GitHub API request failed')],
-        ['invalid response',                _('Invalid API response')],
-        ['Fetching mirror index:',          _('Fetching mirror index:')],
-        ['Failed to fetch mirror index',    _('Failed to fetch mirror index')],
-        ['Empty mirror index',              _('Mirror index is empty')],
-        ['Tags:',                           _('Available tags:')],
-        ['No matching version tags',        _('No matching version tags found')],
-        ['Fetching version index:',         _('Fetching version index:')],
-        ['Empty index',                     _('Version index is empty')],
-        ['No subdir for variant',           _('No matching subdir for selected variant')],
-        ['Failed',                          _('Request failed')],
-        ['Empty subdir listing',            _('Subdir listing is empty')],
-        ['No files in',                     _('No matching files found')],
-        ['Found tag:',                      _('Found tag:')],
-        ['Extracted:',                      _('Extracted lines:')],
-        ['All tags found:',                 _('All tags found:')],
-        ['Tags to process:',                _('Tags to process:')],
-        ['Processing tag:',                 _('Processing tag:')],
-        ['Available subdirs:',              _('Available subdirs:')],
-        ['Selected subdir:',                _('Selected subdir:')],
-        ['Files found:',                    _('Files found:')],
-        ['Found releases:',                 _('Releases found:')],
-        ['No lucky releases found',         _('No Lucky releases found')],
-        ['No luci releases found',          _('No Luci releases found')],
-        ['Unknown mirror:',                 _('Unknown mirror source:')],
+        // init / check 
+        ['Check: mirror=',                          _('Check: mirror=')],
+        ['Auto update: mirror=',                    _('Auto update: mirror=')],
+        ['Found releases:',                         _('Found releases:')],
+        ['Luci releases found:',                    _('LuCI releases found:')],
+        ['Trying luci API:',                        _('Trying LuCI API:')],
+        ['Got response from:',                      _('Got response from:')],
+        ['WARN: No response from',                  _('WARN: No response from')],
+        ['ERROR: All luci APIs failed',             _('ERROR: All LuCI APIs failed')],
+        ['Current lucky:',                          _('Current lucky version:')],
+        ['Lucky binary not found, auto download',   _('Lucky binary not found, downloading automatically')],
+        ['No package manager, skip luci',           _('No package manager found, skipping LuCI')],
+        ['WARN: No luci releases',                  _('WARN: No LuCI releases found')],
+        ['Luci current:',                           _('LuCI current version:')],
+        ['Latest:',                                 _('Latest version:')],
+        ['Auto update complete',                    _('Auto update complete')],
 
-        // luci check
-        ['Check luci:',                     _('Checking LuCI update:')],
-        ['Trying luci API:',                _('Trying LuCI API:')],
-        ['Got response from:',              _('Got response from:')],
-        ['No response from',                _('No response from API')],
-        ['All luci APIs failed',            _('All LuCI API endpoints failed')],
-        ['No package manager found',        _('No package manager found')],
-        ['Luci:',                           _('LuCI:')],
+        // download / install
+        ['Downloading:',                            _('Downloading:')],
+        ['URL:',                                    _('Download URL:')],
+        ['Total size: unknown',                     _('Total size: unknown')],
+        ['Total size:',                             _('Total size:')],
+        ['PROGRESS:',                               _('Progress:')],
+        ['Download complete:',                      _('Download complete:')],
+        ['Extracting...',                           _('Extracting archive...')],
+        ['Found binary:',                           _('Found binary:')],
+        ['Stopping service...',                     _('Stopping service...')],
+        ['Installing:',                             _('Installing to:')],
+        ['Starting service...',                     _('Starting service...')],
+        ['Installation complete:',                  _('Installation complete:')],
 
-        // download
-        ['Downloading:',                    _('Downloading:')],
-        ['From:',                           _('From:')],
-        ['Download failed:',                _('Download failed:')],
-        ['Downloaded file empty',           _('Downloaded file is empty')],
-        ['Download complete:',              _('Download complete:')],
-        ['URL not found for',               _('Download URL not found')],
+        // luci package
+        ['Installing luci package...',              _('Installing LuCI package...')],
+        ['Installing language pack:',               _('Installing language pack:')],
+        ['Language pack installed:',                _('Language pack installed:')],
+        ['Language pack installation failed',       _('Language pack installation failed')],
+        ['Luci installed:',                         _('LuCI installed:')],
 
-        // install lucky
-        ['Extracting...',                   _('Extracting archive...')],
-        ['Extract failed:',                 _('Failed to extract archive:')],
-        ['Unsupported format:',             _('Unsupported archive format:')],
-        ['Binary \'lucky\' not found',      _('Binary "lucky" not found in archive')],
-        ['Found binary:',                   _('Found binary:')],
-        ['Stopping service...',             _('Stopping Lucky service...')],
-        ['Installing:',                     _('Installing:')],
-        ['Failed to install',               _('Failed to install binary')],
-        ['Starting service...',             _('Starting Lucky service...')],
-        ['Installation complete:',          _('Installation complete:')],
+        // mirror warnings
+        ['WARN: Failed',                            _('WARN: Failed to fetch')],
+        ['WARN: Empty index',                       _('WARN: Empty index for tag')],
+        ['WARN: No subdir for',                     _('WARN: No subdir for')],
+        ['WARN: Empty subdir listing',              _('WARN: Empty subdirectory listing')],
+        ['WARN: No files in',                       _('WARN: No files found in')],
 
-        // install luci
-        ['Installing luci package...',      _('Installing LuCI package...')],
-        ['Install failed',                  _('LuCI package installation failed')],
-        ['Detected language:',              _('Detected language:')],
-        ['looking for i18n package:',       _('Looking for language pack:')],
-        ['Installing language pack:',       _('Installing language pack:')],
-        ['Language pack installed:',        _('Language pack installed:')],
-        ['Language pack installation failed',  _('Language pack installation failed')],
-        ['Luci installed:',                 _('LuCI installed:')],
+        // version up-to-date
+        ['Lucky up to date',                        _('Lucky is up to date')],
+        ['Luci up to date',                         _('LuCI is up to date')],
 
-        // auto update
-        ['Auto update:',                    _('Auto update:')],
-        ['Auto update complete',            _('Auto update complete')],
-        ['Current lucky:',                  _('Current Lucky version:')],
-        ['Lucky binary not found, auto download', _('Lucky binary not found, auto download')],
-        ['No releases file after check',    _('No releases file after check')],
-        ['Cannot parse latest tag',         _('Cannot parse latest tag')],
-        ['Cannot parse best file',          _('Cannot parse best file')],
-        ['up to date',                      _('Already up to date, skipping')],
-        ['skipping',                        _('Skipping update')],
-        ['No package manager, skip luci',   _('No package manager, skipping LuCI update')],
-        ['No luci releases',                _('No LuCI releases available')],
-        ['Luci current:',                   _('Current LuCI version:')],
-        ['Latest:',                         _('Latest:')],
-        ['forcing download',                _('Forcing download...')],
-
-        // generic
-        ['ERROR:',                          _('Error:')],
-        ['WARN:',                           _('Warning:')],
-        ['error',                           _('Error')],
-        ['done',                            _('Done')],
-        ['ready',                           _('Ready')],
-        ['Waiting',                         _('Waiting')],
-        ['complete',                        _('Complete')]
+        // errors
+        ['ERROR: GitHub API failed or invalid response', _('ERROR: GitHub API failed or invalid response')],
+        ['ERROR: No matching version tags',         _('ERROR: No matching version tags found')],
+        ["ERROR: Binary 'lucky' not found in archive", _("ERROR: Binary 'lucky' not found in archive")],
+        ['ERROR: Extract failed:',                  _('ERROR: Extract failed:')],
+        ['ERROR: Unsupported format:',              _('ERROR: Unsupported format:')],
+        ['ERROR: Failed to install',                _('ERROR: Failed to install')],
+        ['ERROR: Download failed:',                 _('ERROR: Download failed:')],
+        ['ERROR: Downloaded file empty',            _('ERROR: Downloaded file is empty')],
+        ['ERROR: No lucky releases found',          _('ERROR: No lucky releases found')],
+        ['ERROR: No luci releases found',           _('ERROR: No LuCI releases found')],
+        ['ERROR: No package manager found',         _('ERROR: No package manager found')],
+        ['ERROR: Unknown mirror:',                  _('ERROR: Unknown mirror:')],
+        ['ERROR: URL not found for',                _('ERROR: Download URL not found for')],
+        ['ERROR: Install failed',                   _('ERROR: LuCI package install failed')],
+        ['ERROR: No releases file after check',     _('ERROR: No releases file after check')],
+        ['ERROR: Cannot parse latest tag',          _('ERROR: Cannot parse latest tag')],
+        ['ERROR: Cannot parse best file',           _('ERROR: Cannot parse best file')],
     ],
 
     _translateLine: function(line) {
@@ -105,6 +79,7 @@ return baseclass.extend({
             var kw = this._map[i][0], tr = this._map[i][1];
             if (out.indexOf(kw) !== -1) {
                 out = out.replace(kw, tr);
+                break;
             }
         }
         return out;
