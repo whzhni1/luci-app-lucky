@@ -1,5 +1,5 @@
 #!/bin/sh
-# lucky 更新脚本 v2.1
+# lucky 更新脚本 v2.2
 
 UPDATE_DIR="/tmp/lucky_update"
 STATUS_FILE="$UPDATE_DIR/status"
@@ -75,6 +75,18 @@ detect_lang() {
         [ -f "$f" ] || continue
         local t="${f%.lmo}"; echo "${t##*.}"
     done | sort | uniq -c | sort -nr | head -1 | awk '{print $2}'
+}
+
+fmt_size() {
+    local bytes="$1"
+    if [ -z "$bytes" ] || [ "$bytes" -eq 0 ] 2>/dev/null; then
+        echo "unknown"
+        return
+    fi
+    awk -v b="$bytes" 'BEGIN{
+        if(b>=1048576) printf "%.1fM", b/1048576
+        else           printf "%.1fKB", b/1024
+    }'
 }
 
 extract_version() { grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1; }
@@ -334,7 +346,7 @@ do_download() {
         | grep -i content-length | tail -1 | awk '{print $2}' | tr -d '\r')
 
     if [ -n "$total_size" ] && [ "$total_size" -gt 0 ] 2>/dev/null; then
-        log "Total size: $(awk "BEGIN{printf \"%.1fM\", $total_size/1048576}")"
+        log "Total size: $(fmt_size "$total_size")"
         (
             while true; do
                 sleep 2
@@ -342,9 +354,7 @@ do_download() {
                 downloaded=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
                 [ "${downloaded:-0}" -gt 0 ] || continue
                 pct=$(awk "BEGIN{printf \"%d\", $downloaded*100/$total_size}")
-                dl_mb=$(awk "BEGIN{printf \"%.1f\", $downloaded/1048576}")
-                total_mb=$(awk "BEGIN{printf \"%.1f\", $total_size/1048576}")
-                log "PROGRESS:${pct}%"
+                log "PROGRESS:${pct}% ($(fmt_size "$downloaded")/$(fmt_size "$total_size"))"
                 [ "$pct" -ge 100 ] && break
             done
         ) &
@@ -362,7 +372,8 @@ do_download() {
 
     [ $ret -ne 0 ] && die "$prefix" "Download failed: $url"
     [ -s "$f" ]    || die "$prefix" "Downloaded file empty"
-    log "Download complete: $(du -sh "$f" 2>/dev/null | cut -f1)"
+    local final_size; final_size=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
+    log "Download complete: $(fmt_size "$final_size")"
     echo "$f"
 }
 
@@ -417,14 +428,7 @@ cmd_download_luci() {
     install_luci_pkg "$pm" "$dl" || die "luci" "Install failed"
     rm -f "$dl"
 
-    local lang
-    lang=$(
-        for f in /usr/lib/lua/luci/i18n/*.lmo; do
-            [ -f "$f" ] || continue
-            local tmp="${f%.lmo}"
-            echo "${tmp##*.}"
-        done | sort | uniq -c | sort -nr | head -n1 | awk '{print $2}'
-    )
+    local lang; lang=$(detect_lang)
 
     if [ -n "$lang" ] && [ "$lang" != "en" ] && [ -f "$LUCI_RELEASES_FILE" ]; then
         local lf lu
