@@ -165,7 +165,7 @@ parse_release_lines() {
                 echo "$files_json" | grep -q "\"${fname}\"" && continue
                 files_json="${files_json:+$files_json,}{\"name\":\"$fname\",\"url\":\"$line\"}"
                 if [ -z "$best_name" ]; then
-                    [ -z "$arch" ] || echo "$fname" | grep -q "_${arch}[._]" \
+                    [ -z "$arch" ] || echo "$fname" | grep -q "_${arch}" \
                         && { best_name="$fname"; best_url="$line"; }
                 fi
                 ;;
@@ -232,7 +232,7 @@ fetch_r66666_release_files() {
         [ -z "$fname" ] && continue
         local url="${sub_url}${fname}"
         files_json="${files_json:+$files_json,}{\"name\":\"$fname\",\"url\":\"$url\"}"
-        [ -z "$best_name" ] && echo "$fname" | grep -q "_${arch}[._]" && best_name="$fname"
+        [ -z "$best_name" ] && echo "$fname" | grep -q "_${arch}" && best_name="$fname"
     done << EOF
 $fnames
 EOF
