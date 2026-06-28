@@ -65,7 +65,7 @@ start_service() {
     if [ ! -x "$PROG" ]; then
         [ -x "$UPDATE_SCRIPT" ] && {
             log_msg "Lucky binary not found, triggering download..."
-            setsid "$UPDATE_SCRIPT" >/dev/null 2>&1 &
+            setsid sh -c "$UPDATE_SCRIPT" >/dev/null 2>&1 &
         }
         return 0
     fi
