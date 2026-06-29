@@ -5,7 +5,7 @@ LUCI_DEPENDS:=+luci-base +curl
 LUCI_PKGARCH:=all
 
 PKG_NAME:=luci-app-lucky
-PKG_VERSION:=2.0.2
+PKG_VERSION:=2.0.3
 PKG_RELEASE:=1
 PKG_PO_VERSION:=$(PKG_VERSION)
 
@@ -23,6 +23,7 @@ define Package/$(PKG_NAME)/postinst
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
 INITD=/etc/init.d
 $${INITD}/lucky enable
+$${INITD}/rpcd restart
 $${INITD}/lucky restart
 rm -rf /tmp/luci-*
 exit 0
