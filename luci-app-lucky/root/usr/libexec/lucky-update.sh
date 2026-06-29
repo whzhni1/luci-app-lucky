@@ -89,28 +89,18 @@ fmt_size() {
     }'
 }
 
-extract_version() { grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1; }
-tag_to_ver()      { echo "$1" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1; }
-
 version_lt() {
     local hi; hi=$(printf '%s\n%s' "$1" "$2" | sort -V | tail -1)
     [ "$hi" = "$2" ] && [ "$1" != "$2" ]
 }
 
-_version_file() { echo "$(uci_get configdir /etc/config/lucky.daji)/.lucky_version"; }
-
 get_installed_version() {
-    local f; f=$(_version_file); [ -f "$f" ] && cat "$f" || echo ""
+    uci -q get lucky.lucky.installed_version 2>/dev/null || echo ""
 }
 
 save_installed_version() {
-    local f; f=$(_version_file)
-    mkdir -p "$(dirname "$f")"
-    echo "$1" > "$f"
-}
-
-get_lucky_version() {
-    "${1:-$(uci_get binpath /usr/bin/lucky)}" version 2>/dev/null | extract_version
+    uci -q set lucky.lucky.installed_version="$1" 2>/dev/null
+    uci -q commit lucky 2>/dev/null
 }
 
 get_luci_version() {

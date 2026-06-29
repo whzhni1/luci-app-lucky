@@ -63,6 +63,8 @@ start_service() {
     init_config
 
     if [ ! -x "$PROG" ]; then
+        uci -q set lucky.lucky.installed_version='Unknown' 2>/dev/null
+        uci -q commit lucky 2>/dev/null
         [ -x "$UPDATE_SCRIPT" ] && {
             log_msg "Lucky binary not found, triggering download..."
             setsid sh -c "$UPDATE_SCRIPT" >/dev/null 2>&1 &

@@ -15,7 +15,7 @@ const SETTINGS = {
     configdir: '/etc/config/lucky.daji', binpath: '/usr/bin/lucky',
     arch: 'auto', mirror: 'github', release_type: 'stable', variant: 'lucky',
     respawn_threshold: '3600', respawn_timeout: '30', respawn_retry: '5',
-    auto_update: '0', update_interval: '7'
+    auto_update: '0', update_interval: '7',installed_version: 'Unknown'
 };
 
 const RESTART_KEYS = [
@@ -148,11 +148,10 @@ const api = {
     get_system_info: () => {
         let bin       = ucv('binpath');
         let configdir = ucv('configdir');
-        let vfile     = configdir + '/.lucky_version';
         let mirror    = ucv('mirror');
         let variant   = mirror === 'r66666' ? ucv('variant') : 'lucky';
         return {
-            version:      exists(vfile) ? (trim(read(vfile)) || 'Unknown') : null,
+            version:      ucv('installed_version') || 'Unknown',
             luci_version: getLuciVersion() || 'Unknown',
             variant:      variant,
             arch:         exec(`'${SCRIPT}' detect_arch 2>/dev/null`),
