@@ -46,10 +46,10 @@ window.luckyUI = (function() {
             ].join(';');
         },
 
-        cardTitle: 'font-size:13px;color:#888;margin-bottom:6px;font-weight:500;',
-        cardValue:  'font-size:22px;font-weight:700;color:#222;white-space:nowrap;' +
+        cardTitle: 'font-size:13px;color:#666;margin-bottom:6px;font-weight:500;',
+        cardValue:  'font-size:22px;font-weight:700;color:#666;white-space:nowrap;' +
                     'overflow:hidden;text-overflow:ellipsis;',
-        cardSub:    'font-size:12px;color:#aaa;margin-top:4px;',
+        cardSub:    'font-size:12px;color:#666;margin-top:4px;',
 
         formRow: [
             'display:flex',
@@ -60,8 +60,8 @@ window.luckyUI = (function() {
         ].join(';'),
 
         formLabel: 'min-width:130px;font-weight:500;font-size:14px;' +
-                   'padding-top:4px;flex-shrink:0;',
-        formDesc:  'font-size:12px;color:#aaa;margin-top:4px;',
+                   'padding-top:4px;flex-shrink:0;color:#666;',
+        formDesc:  'font-size:12px;color:#666;margin-top:4px;',
 
         log: [
             'display:none',
@@ -246,7 +246,7 @@ window.luckyUI = (function() {
                    (ok ? '#2e7d32' : '#c62828') + ';margin-bottom:8px;'
         }, title);
         var msgEl   = E('div', {
-            style: 'font-size:14px;color:#555;'
+            style: 'font-size:14px;color:#666;'
         }, msg);
 
         var closeBtn = E('button', {
@@ -314,7 +314,7 @@ window.luckyUI = (function() {
             Array.isArray(children) ? children : [children]
         );
         return E('div', { style: CSS.card + ';margin-bottom:16px;' }, [
-            title ? E('h3', { style: 'margin:0 0 16px;font-size:16px;' }, title) : '',
+            title ? E('h3', { style: CSS.cardTitle }, title) : '',
             inner
         ]);
     }
