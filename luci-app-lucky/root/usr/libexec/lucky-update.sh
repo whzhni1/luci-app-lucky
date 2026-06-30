@@ -93,10 +93,15 @@ fmt_size() {
 
 version_lt() {
     local v1="$1" v2="$2"
-    [ "$v1" = "$v2" ] && return 1
+    local c1 c2
+    c1=$(echo "$v1" | sed 's/^v//')
+    c2=$(echo "$v2" | sed 's/^v//')
+    [ "$c1" = "$c2" ] && return 1
     local n1 n2
-    n1=$(echo "$v1" | sed 's/^v//; s/beta//')
-    n2=$(echo "$v2" | sed 's/^v//; s/beta//')
+    n1=$(echo "$c1" | sed 's/beta/./')
+    n2=$(echo "$c2" | sed 's/beta/./')
+    echo "$c1" | grep -q 'beta' || n1="${n1}.999"
+    echo "$c2" | grep -q 'beta' || n2="${n2}.999"
     local hi; hi=$(printf '%s\n%s' "$n1" "$n2" | sort -V | tail -1)
     [ "$hi" = "$n2" ]
 }
@@ -405,7 +410,7 @@ cmd_download() {
 
     log "Starting service..."
     /etc/init.d/lucky start 2>/dev/null
-    tag_to_ver() { echo "$1" | sed 's/^v//'; }
+    local ver; ver=$(tag_to_ver "$tag")
     save_installed_version "${ver:-$tag}"
     log "Installation complete: ${ver:-$tag}"
     write_status "" "done:${ver:-$tag}"

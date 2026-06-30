@@ -73,7 +73,7 @@ function buildInfoGrid(C) {
                     E('div', { style: C.CSS.cardTitle }, it[0]),
                     E('div', { id: it[1],
                         style: 'font-size:14px;font-weight:600;' +
-                               'margin-top:4px;word-break:break-all;' + 'color:#555;'
+                               'margin-top:4px;word-break:break-all;' + 'color:#666;'
                     }, E('em', {}, _('Loading...')))
                 ]);
             })
