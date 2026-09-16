@@ -87,8 +87,8 @@ msgstr "启动安装失败"
 msgid "Found %d version(s)"
 msgstr "找到 %d 个版本"
 
-msgid "Complete: %s"
-msgstr "完成：%s"
+msgid "Installation complete: %s"
+msgstr "安装完成：%s"
 
 msgid "Switch to light theme"
 msgstr "切换到浅色主题"

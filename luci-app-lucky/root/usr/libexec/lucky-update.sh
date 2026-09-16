@@ -528,7 +528,7 @@ cmd_download_luci() {
         fi
     fi
 
-    log "LuCI installed: $tag"
+    log "Installation complete: $tag"
     write_status "luci" "luci_done:$tag"
 }
 

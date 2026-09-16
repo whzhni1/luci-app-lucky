@@ -282,7 +282,7 @@
     background: var(--lucky-input-bg);
     border: 1px solid var(--lucky-input-border);
     border-radius: 8px;
-    padding: 5px 10px;
+    padding: 4px 10px;
     font-size: 14px;
     color: var(--lucky-text);
     box-sizing: border-box;
@@ -295,7 +295,7 @@
     box-shadow: 0 0 0 3px var(--lucky-focus-ring);
 }
 .lucky-select { width: auto; max-width: 100%; cursor: pointer; }
-.lucky-select option { padding: 5px 10px; }
+.lucky-select option { padding: 4px 10px; }
 .lucky-select--tag { max-width: 200px; }
 .lucky-select--file { max-width: 340px; }
 

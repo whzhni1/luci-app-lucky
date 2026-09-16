@@ -271,7 +271,7 @@ return view.extend({
                         C.setState(t + '_stat', C.taskMessage(s), 'busy');
                     else if (code === 'done')
                         C.setState(t + '_stat',
-                            _('Complete: %s').format(s.installed || ''), 'ok');
+                            _('Installation complete: %s').format(s.installed || ''), 'ok');
                     else if (code === 'error')
                         C.setState(t + '_stat', C.taskMessage(s), 'err');
                 }
