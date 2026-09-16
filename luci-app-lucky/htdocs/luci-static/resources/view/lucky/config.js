@@ -1,26 +1,9 @@
 'use strict';
 'require view';
-'require rpc';
 'require ui';
+'require lucky/common';
 
-function loadCommon() {
-    return new Promise(function(resolve, reject) {
-        if (window.luckyUI) return resolve(window.luckyUI);
-        var s = document.createElement('script');
-        s.src = L.resource('lucky/common.js');
-        s.onload  = function() { resolve(window.luckyUI); };
-        s.onerror = function() { reject(new Error('Failed to load common.js')); };
-        document.head.appendChild(s);
-    });
-}
-
-function mkRpc(method, params) {
-    return rpc.declare({
-        object: 'luci.lucky', method: method,
-        params: params, expect: { '': {} }
-    });
-}
-
+var C   = lucky_common;
 var KEYS = [
     'port', 'safe', 'internet', 'delay', 'configdir', 'binpath',
     'arch', 'mirror', 'release_type', 'variant',
@@ -29,18 +12,17 @@ var KEYS = [
 ];
 
 var api = {
-    settings:       mkRpc('get_settings'),
-    arch:           mkRpc('get_arch'),
-    save:           mkRpc('save_settings', KEYS),
-    reset:          mkRpc('reset_user'),
-    listBackups:    mkRpc('list_backups'),
-    restoreBackup:  mkRpc('restore_backup', ['filename'])
+    settings:      C.rpc('get_settings'),
+    arch:          C.rpc('get_arch'),
+    save:          C.rpc('save_settings', KEYS),
+    reset:         C.rpc('reset_user'),
+    listBackups:   C.rpc('list_backups'),
+    restoreBackup: C.rpc('restore_backup', ['filename'])
 };
 
 return view.extend({
     load: function() {
         return Promise.all([
-            loadCommon(),
             L.resolveDefault(api.settings(), {}),
             L.resolveDefault(api.arch(),     {})
         ]);
@@ -51,7 +33,6 @@ return view.extend({
     handleReset:     function() { location.reload(); },
 
     _save: function() {
-        var C = window.luckyUI;
         return api.save.apply(null, KEYS.map(C.fval)).then(function(res) {
             var ok = res && res.result === 'ok';
             C.showToast({
@@ -65,14 +46,15 @@ return view.extend({
     },
 
     render: function(data) {
-        var C    = window.luckyUI;
-        var cfg  = data[1] || {};
-        var arch = (data[2] || {}).arch || _('Unknown');
+        var cfg  = data[0] || {};
+        var arch = (data[1] || {}).arch || _('Unknown');
 
         var isR        = cfg.mirror === 'r66666';
         var autoUpdate = cfg.auto_update === '1';
+
         var restoreBtn = E('button', {
-            style: C.CSS.btn.primary,
+            type: 'button',
+            class: 'lucky-btn lucky-btn-primary',
             click: function() {
                 restoreBtn.disabled = true;
                 L.resolveDefault(api.listBackups(), {}).then(function(res) {
@@ -89,28 +71,17 @@ return view.extend({
                         return;
                     }
 
+                    var overlay;
                     function closePanel() {
-                        if (overlay && overlay.parentNode) {
+                        if (overlay && overlay.parentNode)
                             overlay.parentNode.removeChild(overlay);
-                        }
                     }
 
                     function buildFileBtn(f) {
                         return E('button', {
-                            style: 'display:block;width:100%;text-align:left;' +
-                                   'padding:10px 14px;margin-bottom:8px;' +
-                                   'border:1px solid #e0e0e0;border-radius:6px;' +
-                                   'background:#fafafa;color:#333;cursor:pointer;' +
-                                   'font-size:13px;white-space:nowrap;overflow:hidden;' +
-                                   'text-overflow:ellipsis;transition:background .15s,border-color .15s;',
-                            onmouseover: function() {
-                                this.style.background  = '#f0f4ff';
-                                this.style.borderColor = '#a8c1ff';
-                            },
-                            onmouseout: function() {
-                                this.style.background  = '#fafafa';
-                                this.style.borderColor = '#e0e0e0';
-                            },
+                            type: 'button',
+                            class: 'lucky-file-btn',
+                            title: f.name,
                             click: function() {
                                 closePanel();
                                 if (!window.confirm(
@@ -118,8 +89,8 @@ return view.extend({
                                 )) return;
                                 L.resolveDefault(
                                     api.restoreBackup({ filename: f.name }), {}
-                                ).then(function(res) {
-                                    var ok = res && res.result === 'ok';
+                                ).then(function(r) {
+                                    var ok = r && r.result === 'ok';
                                     C.showToast({
                                         ok:      ok,
                                         title:   ok ? _('Restored') : _('Failed'),
@@ -133,44 +104,35 @@ return view.extend({
                         }, f.name);
                     }
 
-                    var listWrap = E('div', {
-                        style: 'max-height:320px;overflow-y:auto;' +
-                               'min-width:260px;max-width:480px;padding-right:4px;'
-                    }, files.map(buildFileBtn));
-
-                    var card = E('div', {
-                        style: 'background:#fff;color:#333;border-radius:8px;' +
-                               'padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.15);' +
-                               'max-width:480px;',
-                        click: function(ev) { ev.stopPropagation(); }
-                    }, [
-                        E('h3', { style: 'margin:0 0 12px;font-size:15px;color:#333;' },
-                            '🗂 ' + _('Select Backup to Restore')),
-                        E('p', { style: 'font-size:13px;color:#666;margin:0 0 12px;' },
-                            _('Click a file to restore it:')),
-                        listWrap,
-                        E('div', { style: 'margin-top:16px;text-align:right;' }, [
+                    var card = E('div', { class: 'lucky-panel' }, [
+                        E('h3', { class: 'lucky-panel-title' },
+                            [C.icon('folder', 16), E('span', {}, _('Select Backup to Restore'))]),
+                        E('p', { class: 'lucky-panel-desc' }, _('Click a file to restore it:')),
+                        E('div', { class: 'lucky-file-list' }, files.map(buildFileBtn)),
+                        E('div', { class: 'lucky-panel-foot' }, [
                             E('button', {
-                                style: C.CSS.btn.danger,
-                                click: function() { closePanel(); }
+                                type: 'button',
+                                class: 'lucky-btn lucky-btn-danger',
+                                click: closePanel
                             }, _('Cancel'))
                         ])
                     ]);
 
-                    var overlay = E('div', {
-                        style: 'position:fixed;top:0;left:0;right:0;bottom:0;' +
-                               'display:flex;align-items:center;justify-content:center;' +
-                               'z-index:10000;',
-                        click: function() { closePanel(); }
-                    }, [card]);
-
+                    overlay = E('div', { class: 'lucky-panel-overlay' }, [card]);
+                    overlay.addEventListener('click', function(ev) {
+                        if (ev.target === overlay) closePanel();
+                    });
+                    card.addEventListener('click', function(ev) {
+                        ev.stopPropagation();
+                    });
                     document.body.appendChild(overlay);
                 });
             }
-        }, _('Restore Backup'));
+        }, [C.icon('folder', 14), E('span', {}, _('Restore Backup'))]);
 
         var resetBtn = E('button', {
-            style: C.CSS.btn.danger,
+            type: 'button',
+            class: 'lucky-btn lucky-btn-danger',
             click: function() {
                 if (!window.confirm(
                     _('Reset credentials to 666? Service will restart.'))) return;
@@ -186,7 +148,7 @@ return view.extend({
                     });
                 });
             }
-        }, _('Reset password'));
+        }, [C.icon('trash', 14), E('span', {}, _('Reset password'))]);
 
         var descThreshold = E('span', {}, '');
         var descTimeout   = E('span', {}, '');
@@ -212,10 +174,10 @@ return view.extend({
         descTimeout.textContent   = fmtTimeout(cfg.respawn_timeout     || '30');
         descRetry.textContent     = fmtRetry(cfg.respawn_retry         || '5');
 
-        var mapEl = E('div', { class: 'cbi-map' }, [
+        var mapEl = E('div', { class: 'cbi-map lucky-page' }, [
             E('h2', {}, _('Lucky — Settings')),
 
-            C.buildCard('⚙ ' + _('Basic Service'), [
+            C.buildCard(_('Basic Service'), [
                 C.buildFormRow('text', 'port', _('Web UI Port'),
                     cfg.port || '16601',
                     _('Default: 16601'),
@@ -230,7 +192,7 @@ return view.extend({
                     cfg.delay || '60',
                     _('Delay before starting after boot (only when uptime < 120s)'),
                     { style: 'width:80px;', min: '0' }),
-                C.buildFormRow('custom', 'restore',  _('Restore Backup'),
+                C.buildFormRow('custom', 'restore', _('Restore Backup'),
                     null,
                     _('Restore Lucky config from a previous backup'),
                     restoreBtn),
@@ -238,10 +200,10 @@ return view.extend({
                     null,
                     _('Reset username and password back to 666'),
                     resetBtn)
-            ]),
+            ], { icon: 'gear' }),
 
-            E('div', { style: C.CSS.gridAuto(280, 16) }, [
-                C.buildCard('📁 ' + _('Path & Architecture'), [
+            C.buildGrid(280, [
+                C.buildCard(_('Path & Architecture'), [
                     C.buildFormRow('text', 'configdir', _('Data Directory'),
                         cfg.configdir || '/etc/config/lucky.daji',
                         _('Lucky runtime data directory')),
@@ -255,8 +217,8 @@ return view.extend({
                             _('Leave "auto" to detect automatically')
                         ]),
                         { style: 'width:120px;' })
-                ]),
-                C.buildCard('🔄 ' + _('Download & Update'), [
+                ], { icon: 'folder' }),
+                C.buildCard(_('Download & Update'), [
                     C.buildFormRow('select', 'mirror', _('Download Mirror'),
                         cfg.mirror || 'github', null, [
                             { v: 'github', l: _('GitHub (github.com/gdy666/lucky)') },
@@ -274,11 +236,11 @@ return view.extend({
                             { v: 'lucky', l: _('Standard (lucky)') },
                             { v: 'wanji', l: _('Full-featured (wanji)') }
                         ])
-                ])
+                ], { icon: 'download' })
             ]),
 
-            E('div', { style: C.CSS.gridAuto(280, 16) }, [
-                C.buildCard('🔁 ' +_('Respawn Policy'), [
+            C.buildGrid(280, [
+                C.buildCard(_('Respawn Policy'), [
                     C.buildFormRow('number', 'respawn_threshold', _('Crash Threshold (s)'),
                         cfg.respawn_threshold || '3600',
                         descThreshold,
@@ -291,8 +253,8 @@ return view.extend({
                         cfg.respawn_retry || '5',
                         descRetry,
                         { style: 'width:80px;', min: '0' })
-                ]),
-                C.buildCard('🕐 ' + _('Auto Update'), [
+                ], { icon: 'refresh' }),
+                C.buildCard(_('Auto Update'), [
                     C.buildFormRow('toggle', 'auto_update', _('Enable Auto Update'),
                         cfg.auto_update || '0',
                         _('Periodically check and install the latest version')),
@@ -300,9 +262,11 @@ return view.extend({
                         cfg.update_interval || '7',
                         _('Range: 1 – 365 days'),
                         { style: 'width:80px;', min: '1', max: '365' })
-                ])
+                ], { icon: 'clock' })
             ])
         ]);
+
+        C.initThemeButton();
 
         var mirrorEl = mapEl.querySelector('#_f_mirror');
         if (mirrorEl) {

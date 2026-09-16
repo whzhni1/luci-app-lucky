@@ -1,36 +1,18 @@
 'use strict';
 'require view';
 'require poll';
-'require rpc';
 'require dom';
-'require lucky/log';
+'require lucky/common';
 
-function loadCommon() {
-    return new Promise(function(resolve, reject) {
-        if (window.luckyUI) return resolve(window.luckyUI);
-        var s = document.createElement('script');
-        s.src = L.resource('lucky/common.js');
-        s.onload  = function() { resolve(window.luckyUI); };
-        s.onerror = function() { reject(new Error('Failed to load common.js')); };
-        document.head.appendChild(s);
-    });
-}
-
-function mkRpc(method, params) {
-    return rpc.declare({
-        object: 'luci.lucky', method: method,
-        params: params, expect: { '': {} }
-    });
-}
-
+var C   = lucky_common;
 var api = {
-    status:  mkRpc('get_status'),
-    info:    mkRpc('get_system_info'),
-    settings:mkRpc('get_settings'),
-    stats:   mkRpc('get_process_stats'),
-    toggle:  mkRpc('toggle_service', ['action']),
-    autoLog: mkRpc('get_auto_update_log', ['type']),
-    download:mkRpc('run_update')
+    status:   C.rpc('get_status'),
+    info:     C.rpc('get_system_info'),
+    settings: C.rpc('get_settings'),
+    stats:    C.rpc('get_process_stats'),
+    toggle:   C.rpc('toggle_service', ['action']),
+    download: C.rpc('run_update'),
+    updStat:  C.rpc('get_update_status')
 };
 
 function fmtUptime(sec) {
@@ -50,142 +32,96 @@ function fmtMem(kb) {
     return kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
 }
 
-function buildKVRow(label, id, value) {
-    return [
-        E('span', { style: 'color:#666;white-space:nowrap;' }, label),
-        E('span', { id: id,
-            style: 'font-weight:600;word-break:break-all;color:#333;' },
-            value || _('Unknown'))
-    ];
-}
-
-function buildLinkBtn(label, url) {
-    return E('a', {
-        href: url, target: '_blank',
-        style: [
-            'display:inline-flex', 'align-items:center',
-            'padding:7px 18px', 'border-radius:6px',
-            'background:#f0f4ff', 'color:#1976d2',
-            'font-size:13px', 'font-weight:500',
-            'text-decoration:none', 'border:1px solid #c5d8f8',
-            'white-space:nowrap'
-        ].join(';'),
-        onmouseover: function() { this.style.background = '#dceaff'; },
-        onmouseout:  function() { this.style.background = '#f0f4ff'; }
-    }, label);
-}
-
-function buildMissingCard(C) {
-    var logEl  = E('pre', { style: C.CSS.log });
-    var barEl  = E('div', { style: 'display:none;margin-top:8px;' }, [
-        C.buildBar('bar_missing')
-    ]);
-    var statEl = E('span', {
-        style: 'font-size:13px;color:#888;margin-left:8px;'
-    }, '');
+function buildMissingCard() {
+    var logEl   = E('pre', { id: 'miss_log', class: 'lucky-log' });
+    var barWrap = E('div', { style: 'display:none;' },
+        [C.buildBar('bar_missing', 'progress')]);
+    var statEl  = E('span', { id: 'miss_stat', class: 'lucky-state' });
     var cardEl;
 
     var dlBtn = E('button', {
-        style: C.CSS.btn.primary,
+        type: 'button',
+        class: 'lucky-btn lucky-btn-primary',
         click: function() {
-            dlBtn.disabled     = true;
-            statEl.textContent = _('Starting download…');
-            statEl.style.color = '#888';
-            barEl.style.display = 'block';
+            dlBtn.disabled = true;
+            barWrap.style.display = 'block';
             C.setBar('bar_missing', 0);
+            C.setState('miss_stat', _('Starting download…'), 'busy');
 
             L.resolveDefault(api.download(), {}).then(function(res) {
                 if (!res || res.result !== 'ok') {
-                    dlBtn.disabled      = false;
-                    barEl.style.display = 'none';
-                    statEl.textContent  = _('Failed to start, please check log.');
-                    statEl.style.color  = '#c62828';
+                    dlBtn.disabled = false;
+                    barWrap.style.display = 'none';
+                    C.setState('miss_stat',
+                        _('Failed to start, please check the log.'), 'err');
                     return;
                 }
-                statEl.textContent  = _('Downloading…');
-                logEl.style.display = 'block';
-                var dots = 0, lastLog = '';
-                var timer = setInterval(function() {
-                    var dot = '.'.repeat(dots = dots % 3 + 1);
-                    L.resolveDefault(api.autoLog({ type: '' }), {}).then(function(r) {
-                        var raw  = (r && r.log) ? r.log : '';
-                        var text = lucky_log.translate(raw);
-
-                        if (text && text !== lastLog) {
-                            var atBottom = logEl.scrollTop + logEl.clientHeight
-                                           >= logEl.scrollHeight - 10;
-                            logEl.textContent = text;
-                            lastLog = text;
-                            if (atBottom) logEl.scrollTop = logEl.scrollHeight;
-                        }
-
-                        var lines = raw.split('\n');
-                        for (var i = lines.length - 1; i >= 0; i--) {
-                            var m = lines[i].match(/PROGRESS:(\d+)/);
-                            if (m) { C.setBar('bar_missing', parseInt(m[1])); break; }
-                        }
-
-                        var last = lines.filter(function(l) {
-                            return l.trim();
-                        });
-                        last = last[last.length - 1] || '';
-
-                        if (last.indexOf('complete') !== -1 ||
-                            last.indexOf(_('Complete')) !== -1) {
-                            clearInterval(timer);
+                logEl.classList.add('is-open');
+                var p = C.LogPoller({
+                    status:   function() { return L.resolveDefault(api.updStat(), {}); },
+                    textEl:   'miss_log',
+                    bar:      'bar_missing',
+                    interval: 1500,
+                    terminal: function(s) {
+                        var code = s.code || s.status;
+                        return code === 'done' || code === 'error';
+                    },
+                    onTick: function(s) {
+                        var code = s.code || s.status;
+                        if (code === 'downloading')
+                            C.setState('miss_stat', _('Downloading…'), 'busy');
+                        else if (code === 'installing')
+                            C.setState('miss_stat', _('Installing…'), 'busy');
+                        else if (code === 'checking' || code === 'ready')
+                            C.setState('miss_stat', _('Checking upstream…'), 'busy');
+                    },
+                    onDone: function(s) {
+                        var code = s.code || s.status;
+                        if (code === 'done') {
                             C.setBar('bar_missing', 100);
-                            if (cardEl) cardEl.style.display = 'none';
+                            var card = document.getElementById('missing_card');
+                            if (card) card.style.display = 'none';
                             C.showToast({
-                                ok:      true,
-                                msg:     _('Lucky core downloaded successfully. Service is starting…'),
+                                ok: true,
+                                msg: _('Lucky core downloaded successfully. Service is starting…'),
                                 timeout: 3000
                             });
-                        } else if (last.indexOf('ERROR') !== -1 ||
-                                   last.indexOf('error')  !== -1) {
-                            clearInterval(timer);
-                            dlBtn.disabled     = false;
-                            statEl.textContent = _('✗ Download failed, see log below.');
-                            statEl.style.color = '#c62828';
                         } else {
-                            statEl.textContent = _('Downloading') + dot;
+                            dlBtn.disabled = false;
+                            C.setState('miss_stat',
+                                C.taskMessage(s), 'err');
                         }
-                    });
-                }, 1500);
+                    }
+                });
+                p.start();
             });
         }
-    }, _('Download Lucky Core'));
+    }, [C.icon('download', 14), E('span', {}, _('Download Lucky Core'))]);
 
-    cardEl = E('div', { id: 'missing_card', style: [
-        'background:#fff8e1', 'border:1px solid #ffe082',
-        'border-radius:12px', 'padding:20px 24px', 'margin-bottom:16px'
-    ].join(';') }, [
-        E('div', {
-            style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px;'
-        }, [
-            E('span', { style: 'font-size:20px;' }, '⚠️'),
-            E('span', { style: 'font-weight:700;font-size:15px;color:#e65100;' },
-                _('Lucky core binary not found'))
+    cardEl = E('div', { id: 'missing_card', class: 'lucky-card lucky-card--warn' }, [
+        E('div', { class: 'lucky-warn-head' }, [
+            C.icon('alert', 18),
+            E('span', { class: 'lucky-warn-title' }, _('Lucky core binary not found'))
         ]),
-        E('div', { style: 'font-size:13px;color:#888;margin-bottom:12px;' },
+        E('div', { class: 'lucky-form-desc', style: 'margin:0 0 12px;font-size:13px;' },
             _('The Lucky executable is missing. Download it to start the service.')),
-        E('div', {
-            style: 'display:flex;align-items:center;flex-wrap:wrap;gap:8px;'
-        }, [ dlBtn, statEl ]),
-        barEl,
+        E('div', { class: 'lucky-banner-row' }, [dlBtn, statEl]),
+        barWrap,
         logEl
     ]);
     return cardEl;
 }
 
 return view.extend({
-    handleSave: null, handleSaveApply: null, handleReset: null,
+    handleSave: null,
+    handleSaveApply: null,
+    handleReset: null,
 
     _prevProc:  0,
     _prevTotal: 0,
 
     load: function() {
         return Promise.all([
-            loadCommon(),
             L.resolveDefault(api.status(),   {}),
             L.resolveDefault(api.info(),     {}),
             L.resolveDefault(api.settings(), {})
@@ -194,128 +130,108 @@ return view.extend({
 
     render: function(data) {
         var self   = this;
-        var C      = window.luckyUI;
-        var status = data[1] || {};
-        var info   = data[2] || {};
-        var cfg    = data[3] || {};
+        var status = data[0] || {};
+        var info   = data[1] || {};
+        var cfg    = data[2] || {};
 
         var port     = cfg.port || '16601';
         var safe     = cfg.safe || '';
         var internet = cfg.internet === '1';
         var url      = window.location.protocol + '//' + window.location.hostname +
-               ':' + port + '/' + (safe ? safe + '/' : '');
+                       ':' + port + '/' + (safe ? safe + '/' : '');
 
         var toggleInput = null;
-
         var toggleEl = C.buildToggle('st_enabled', cfg.enabled === '1',
             function() {
                 toggleInput = this;
                 var action = this.checked ? 'enable' : 'disable';
                 L.resolveDefault(api.toggle(action), {}).then(function(res) {
-                    if (!res || res.result !== 'ok') {
+                    if (!res || res.result !== 'ok')
                         toggleInput.checked = !toggleInput.checked;
-                    }
                 });
-            }
-        );
-
-        var restartBtn = C.buildRestartBtn(function() {
-            var btn = this;
-            btn.disabled = true;
-            L.resolveDefault(api.toggle('restart'), {}).then(function() {
-                window.setTimeout(function() { btn.disabled = false; }, 3000);
             });
-        }, _('Restart Lucky'));
 
-        var bannerEl = E('div', { style: C.CSS.card + ';margin-bottom:16px;' }, [
-            E('div', {
-                style: 'display:flex;align-items:center;gap:10px;' +
-                       'margin-bottom:14px;flex-wrap:wrap;'
-            }, [
+        var restartBtn = C.buildIconBtn('refresh', _('Restart Lucky'), function() {
+            this.disabled = true;
+            this.classList.add('is-spinning');
+            L.resolveDefault(api.toggle('restart'), {}).then(function() {
+                window.setTimeout(function() {
+                    restartBtn.disabled = false;
+                    restartBtn.classList.remove('is-spinning');
+                }, 3000);
+            });
+        });
+
+        var bannerEl = E('div', { class: 'lucky-card' }, [
+            E('div', { class: 'lucky-banner-row' }, [
                 toggleEl,
-                E('span', { style: 'font-size:14px;font-weight:500;color:#333;' },
-                    _('Enable Lucky')),
+                E('span', { class: 'lucky-banner-label' }, _('Enable Lucky')),
                 restartBtn
             ]),
-            E('div', {
-                style: 'display:flex;align-items:center;' +
-                       'justify-content:space-between;flex-wrap:wrap;gap:12px;'
-            }, [
+            E('div', { class: 'lucky-banner-status' }, [
                 E('div', {}, [
                     E('div', { id: 'st_dot',
-                        style: 'font-size:20px;font-weight:700;' +
-                               'margin-bottom:6px;color:#888;'
-                    }, '○ Lucky — ' + _('Checking...')),
-                    E('div', { id: 'st_uptime',
-                        style: 'font-size:13px;color:#aaa;' }, '—')
+                        class: 'lucky-dot lucky-dot--idle' },
+                        '○ Lucky — ' + _('Checking…')),
+                    E('div', { id: 'st_uptime', class: 'lucky-uptime' }, '—')
                 ]),
                 E('div', { id: 'st_btn' })
             ])
         ]);
 
-        var metricsGrid = E('div', { style: C.CSS.gridAuto(200, 16) }, [
-            E('div', { style: C.CSS.card }, [
-                E('div', { style: C.CSS.cardTitle }, _('CPU Usage')),
-                E('div', { id: 'st_cpu', style: C.CSS.cardValue }, '—'),
-                C.buildBar('bar_cpu'),
-                E('div', { id: 'st_thr', style: C.CSS.cardSub }, '—')
+        var metricsGrid = C.buildGrid(200, [
+            E('div', { class: 'lucky-card' }, [
+                E('div', { class: 'lucky-card-title' }, _('CPU Usage')),
+                E('div', { id: 'st_cpu', class: 'lucky-metric-value' }, '—'),
+                C.buildBar('bar_cpu', 'load'),
+                E('div', { id: 'st_thr', class: 'lucky-metric-sub' }, '—')
             ]),
-            E('div', { style: C.CSS.card }, [
-                E('div', { style: C.CSS.cardTitle }, _('Memory')),
-                E('div', { id: 'st_mem', style: C.CSS.cardValue }, '—'),
-                C.buildBar('bar_mem'),
-                E('div', { id: 'st_memp', style: C.CSS.cardSub }, '—')
+            E('div', { class: 'lucky-card' }, [
+                E('div', { class: 'lucky-card-title' }, _('Memory')),
+                E('div', { id: 'st_mem', class: 'lucky-metric-value' }, '—'),
+                C.buildBar('bar_mem', 'load'),
+                E('div', { id: 'st_memp', class: 'lucky-metric-sub' }, '—')
             ]),
-            E('div', { style: C.CSS.card }, [
-                E('div', { style: C.CSS.cardTitle }, _('Process')),
-                E('div', { id: 'st_pid', style: C.CSS.cardValue }, '—'),
-                E('div', { id: 'st_thr2', style: C.CSS.cardSub }, '—')
+            E('div', { class: 'lucky-card' }, [
+                E('div', { class: 'lucky-card-title' }, _('Process')),
+                E('div', { id: 'st_pid', class: 'lucky-metric-value' }, '—'),
+                E('div', { id: 'st_thr2', class: 'lucky-metric-sub' }, '—')
             ])
         ]);
 
-        var infoGrid = E('div', { style: C.CSS.gridAuto(240, 16) }, [
-            C.buildCard(_('Version Info'),
-                E('div', {
-                    style: 'display:grid;grid-template-columns:auto 1fr;' +
-                           'gap:6px 16px;font-size:14px;min-width:220px;'
-                }, [].concat(
-                    buildKVRow('Lucky',      'si_ver',  info.version      || _('Unknown')),
-                    buildKVRow('LuCI',       'si_luci', info.luci_version || _('Unknown')),
-                    buildKVRow(_('Variant'), 'si_var',  info.variant      || _('Unknown')),
-                    buildKVRow(_('Arch'),    'si_arch', info.arch         || _('Unknown'))
-                ))
-            ),
-            C.buildCard(_('Access Info'),
-                E('div', {
-                    style: 'display:grid;grid-template-columns:auto 1fr;' +
-                           'gap:6px 16px;font-size:14px;min-width:220px;'
-                }, [].concat(
-                    buildKVRow(_('Port'), 'si_port', port),
-                    buildKVRow(_('Internet Access'), 'si_internet', internet ? _('Enabled') : _('Disabled')),
-                    buildKVRow(_('Entrance'), 'si_safe', safe ? '/' + safe + '/' : '/'),
-                    buildKVRow(_('URL'), 'si_url', url)
-                ))
-            )
+        var infoGrid = C.buildGrid(240, [
+            C.buildCard(_('Version Info'), C.buildKVGrid([
+                ['Lucky',      'si_ver',  info.version      || _('Unknown')],
+                ['LuCI',       'si_luci', info.luci_version || _('Unknown')],
+                [_('Variant'), 'si_var',  info.variant      || _('Unknown')],
+                [_('Arch'),    'si_arch', info.arch         || _('Unknown')]
+            ]), { icon: 'info' }),
+            C.buildCard(_('Access Info'), C.buildKVGrid([
+                [_('Port'),            'si_port', port],
+                [_('Internet Access'), 'si_internet', internet ? _('Enabled') : _('Disabled')],
+                [_('Entrance'),        'si_safe', safe ? '/' + safe + '/' : '/'],
+                [_('URL'),             'si_url', url]
+            ]), { icon: 'globe' })
         ]);
 
-        var linkCard = E('div', { style: C.CSS.card + ';margin-bottom:16px;' }, [
+        var linkCard = C.buildCard(null,
             E('div', {
-                style: 'display:flex;justify-content:center;' +
-                       'align-items:center;flex-wrap:wrap;gap:12px;'
+                style: 'display:flex;justify-content:center;align-items:center;' +
+                       'flex-wrap:wrap;gap:12px;'
             }, [
-                buildLinkBtn('🌐 ' + _('Official Website'), 'https://lucky666.cn/'),
-                buildLinkBtn('⭐ GitHub Lucky',
-                    'https://github.com/gdy666/lucky/releases'),
-                buildLinkBtn('📦 GitHub LuCI',
-                    'https://github.com/whzhni1/luci-app-lucky')
-            ])
-        ]);
+                C.buildLinkBtn(_('Official Website'), 'https://lucky666.cn/', 'globe'),
+                C.buildLinkBtn(_('GitHub Lucky'),
+                    'https://github.com/gdy666/lucky/releases', 'box'),
+                C.buildLinkBtn(_('GitHub LuCI'),
+                    'https://github.com/whzhni1/luci-app-lucky', 'box')
+            ]), { icon: null });
 
-        var children = [ E('h2', {}, _('Lucky — Status')) ];
-        if (status.binary_missing) children.push(buildMissingCard(C));
+        var children = [E('h2', {}, _('Lucky — Status'))];
+        if (status.binary_missing) children.push(buildMissingCard());
         children.push(bannerEl, metricsGrid, infoGrid, linkCard);
 
-        var mapEl = E('div', { class: 'cbi-map' }, children);
+        var mapEl = E('div', { class: 'cbi-map lucky-page' }, children);
+        C.initThemeButton();
 
         poll.add(function() {
             return Promise.all([
@@ -329,23 +245,25 @@ return view.extend({
                 if (dotEl) {
                     dotEl.textContent = (run ? '● ' : '○ ') + 'Lucky — ' +
                         (run ? _('RUNNING') : _('NOT RUNNING'));
-                    dotEl.style.color = run ? '#2e7d32' : '#c62828';
+                    dotEl.className = 'lucky-dot lucky-dot--' +
+                        (run ? 'run' : 'stop') + (run ? ' lucky-pulse' : '');
                 }
 
                 var uptEl = document.getElementById('st_uptime');
                 if (uptEl) {
                     uptEl.textContent = run
                         ? _('Uptime:') + fmtUptime(ps.uptime_seconds) : '—';
-                    uptEl.style.color = run ? '#555' : '#aaa';
+                    uptEl.classList.toggle('is-off', !run);
                 }
 
                 var btnEl = document.getElementById('st_btn');
                 if (btnEl) {
                     if (run && !btnEl.hasChildNodes()) {
                         dom.content(btnEl, E('button', {
-                            style: C.CSS.btn.primary,
+                            type: 'button',
+                            class: 'lucky-btn lucky-btn-primary',
                             click: function() { window.open(url); }
-                        }, _('Open Lucky Web UI')));
+                        }, [C.icon('external', 14), E('span', {}, _('Open Lucky Web UI'))]));
                     } else if (!run && btnEl.hasChildNodes()) {
                         dom.content(btnEl, []);
                     }

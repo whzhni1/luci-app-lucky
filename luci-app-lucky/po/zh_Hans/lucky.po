@@ -1,13 +1,14 @@
-# lucky LuCI i18n Chinese (Simplified)
-# zh-cn
-# v2.3
-
 msgid ""
 msgstr ""
+"Project-Id-Version: luci-app-lucky\n"
+"Language: zh_Hans\n"
+"Language-Team: Chinese (Simplified)\n"
+"PO-Revision-Date: 2026-09-16 00:00+0800\n"
+"MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
-# luci-app-lucky.json / menu
 msgid "Lucky"
 msgstr "Lucky"
 
@@ -15,137 +16,82 @@ msgid "Status"
 msgstr "运行状态"
 
 msgid "Settings"
-msgstr "服务设置"
+msgstr "基本设置"
 
 msgid "Download & Update"
 msgstr "下载与更新"
 
-# view/lucky/status.js
+msgid "Switch to light theme"
+msgstr "切换到浅色主题"
 
-msgid "N/A"
-msgstr "不适用"
+msgid "Switch to dark theme"
+msgstr "切换到深色主题"
 
-msgid "d"
-msgstr "天"
+msgid "Turn off background decoration"
+msgstr "关闭背景装饰"
 
-msgid "h"
-msgstr "小时"
-
-msgid "m"
-msgstr "分钟"
-
-msgid "s"
-msgstr "秒"
-
-msgid "Starting download…"
-msgstr "开始下载…"
-
-msgid "Failed to start, please check log."
-msgstr "启动失败，请检查日志。"
-
-msgid "Downloading…"
-msgstr "下载中…"
-
-msgid "Waiting"
-msgstr "等待中"
-
-msgid "Complete"
-msgstr "完成"
-
-msgid "Lucky core downloaded successfully. Service is starting…"
-msgstr "Lucky核心下载成功，服务正在启动…"
-
-msgid "✗ Download failed, see log below."
-msgstr "✗ 下载失败，查看下方日志。"
-
-msgid "Download Lucky Core"
-msgstr "下载Lucky核心"
-
-msgid "Lucky core binary not found"
-msgstr "未找到Lucky核心二进制文件"
-
-msgid "The Lucky executable is missing. Download it to start the service."
-msgstr "缺少Lucky可执行文件，请下载以启动服务。"
-
-msgid "Restart Lucky"
-msgstr "重启Lucky"
-
-msgid "Enable Lucky"
-msgstr "启用Lucky"
-
-msgid "Checking..."
-msgstr "检查中…"
-
-msgid "CPU Usage"
-msgstr "CPU使用率"
-
-msgid "Memory"
-msgstr "内存"
-
-msgid "Process"
-msgstr "进程"
-
-msgid "Version Info"
-msgstr "版本信息"
+msgid "Turn on background decoration"
+msgstr "开启背景装饰"
 
 msgid "Unknown"
 msgstr "未知"
 
-msgid "Variant"
-msgstr "版本类型"
+msgid "Loading…"
+msgstr "正在加载…"
 
-msgid "Arch"
-msgstr "系统架构"
+msgid "Success"
+msgstr "成功"
 
-msgid "Access Info"
-msgstr "访问信息"
+msgid "Failed"
+msgstr "失败"
 
-msgid "Port"
-msgstr "端口"
+msgid "OK"
+msgstr "确定"
 
-msgid "Internet Access"
-msgstr "外网访问"
+msgid "Saved"
+msgstr "已保存"
 
-msgid "Enabled"
-msgstr "已启用"
+msgid "Save Failed"
+msgstr "保存失败"
 
-msgid "Disabled"
-msgstr "已禁用"
+msgid "Settings saved successfully."
+msgstr "设置保存成功。"
 
-msgid "Entrance"
-msgstr "安全入口"
+msgid "Save failed"
+msgstr "保存失败"
 
-msgid "URL"
-msgstr "访问地址"
+msgid "No Backups"
+msgstr "无备份"
 
-msgid "Official Website"
-msgstr "官方网站"
+msgid "No backup files found."
+msgstr "未找到备份文件。"
 
-msgid "Lucky — Status"
-msgstr "Lucky — 状态"
+msgid "Restore backup: %s ?"
+msgstr "恢复备份：%s？"
 
-msgid "RUNNING"
-msgstr "运行中"
+msgid "Restored"
+msgstr "已恢复"
 
-msgid "NOT RUNNING"
-msgstr "未运行"
+msgid "Backup restored successfully."
+msgstr "备份恢复成功。"
 
-msgid "Uptime:"
-msgstr "运行时间:"
+msgid "Restore failed"
+msgstr "恢复失败"
 
-msgid "Open Lucky Web UI"
-msgstr "打开Lucky 控制台"
+msgid "Select Backup to Restore"
+msgstr "选择要恢复的备份"
 
-msgid "Cores:"
-msgstr "核心数:"
+msgid "Click a file to restore it:"
+msgstr "点击文件进行恢复："
 
-msgid "Threads:"
-msgstr "线程数:"
+msgid "Cancel"
+msgstr "取消"
 
-# view/lucky/config.js
+msgid "Restore Backup"
+msgstr "恢复备份"
 
 msgid "Reset credentials to 666? Service will restart."
-msgstr "重置密码为666？服务将重启。"
+msgstr "将凭据重置为 666？服务将重启。"
 
 msgid "Reset Success"
 msgstr "重置成功"
@@ -154,70 +100,67 @@ msgid "Reset Failed"
 msgstr "重置失败"
 
 msgid "Credentials reset to 666, service restarting…"
-msgstr "密码已重置为666，服务正在重启…"
+msgstr "凭据已重置为 666，服务正在重启…"
 
 msgid "Reset failed, please check the log."
 msgstr "重置失败，请检查日志。"
 
+msgid "Reset password"
+msgstr "重置密码"
+
 msgid "Uptime > 0s always resets the retry counter"
-msgstr "运行时间 > 0秒时总是重置重试计数器"
+msgstr "运行时间 > 0 秒时始终重置重试计数器"
 
 msgid "Uptime exceeds %ss, retry counter resets"
-msgstr "运行时间超过 %s秒，重试计数器重置"
+msgstr "运行时间超过 %s 秒后重置重试计数器"
 
 msgid "Wait %ss before restarting after a crash"
-msgstr "崩溃后等待 %s秒再重启"
+msgstr "崩溃后等待 %s 秒再重启"
 
 msgid "Unlimited retries"
 msgstr "无限重试"
 
 msgid "Stop after %s restart(s), 0 No limits"
-msgstr "在 %s 次重启后停止，0 无限"
-
-msgid "Reset password"
-msgstr "重置密码"
+msgstr "%s 次重启后停止，0 表示不限制"
 
 msgid "Lucky — Settings"
 msgstr "Lucky — 设置"
 
 msgid "Basic Service"
-msgstr "基础服务"
+msgstr "基本服务"
 
 msgid "Web UI Port"
 msgstr "Web UI 端口"
 
 msgid "Default: 16601"
-msgstr "访问 Lucky 管理界面的端口号，默认：16601"
+msgstr "默认：16601"
 
 msgid "Safe Entrance"
 msgstr "安全入口"
 
 msgid "URL path prefix, e.g.: mysecret"
-msgstr "自定义 URL 路径前缀以保护管理界面，例如：mysecret"
+msgstr "URL 路径前缀，例如：mysecret"
 
 msgid "Allow Internet Access"
-msgstr "外网访问"
+msgstr "允许互联网访问"
 
 msgid "Allow access to the Web UI from the internet"
-msgstr "允许从外网访问 Web UI"
+msgstr "允许从互联网访问 Web UI"
 
 msgid "Delayed Start (s)"
 msgstr "延迟启动（秒）"
 
 msgid "Delay before starting after boot (only when uptime < 120s)"
-msgstr "启动后延迟启动（仅当运行时间<120秒时）"
-
-msgid "Restore Backup"
-msgstr "恢复备份"
+msgstr "启动后延迟启动（仅当运行时间 < 120 秒时）"
 
 msgid "Restore Lucky config from a previous backup"
-msgstr "从之前的备份中恢复 Lucky 配置"
+msgstr "从以前的备份恢复 Lucky 配置"
 
 msgid "Reset Credentials"
-msgstr "重置凭证"
+msgstr "重置凭据"
 
 msgid "Reset username and password back to 666"
-msgstr "将用户名和密码重置为666"
+msgstr "将用户名和密码重置为 666"
 
 msgid "Path & Architecture"
 msgstr "路径与架构"
@@ -226,58 +169,55 @@ msgid "Data Directory"
 msgstr "数据目录"
 
 msgid "Lucky runtime data directory"
-msgstr "Lucky运行时数据目录"
+msgstr "Lucky 运行时数据目录"
 
 msgid "Binary Path"
-msgstr "二进制路径"
+msgstr "程序路径"
 
 msgid "Full path to the Lucky executable"
-msgstr "Lucky可执行文件的完整路径"
+msgstr "Lucky 可执行文件的完整路径"
 
 msgid "Architecture"
-msgstr "设备架构"
+msgstr "架构"
 
 msgid "Detected:"
-msgstr "当前检测:"
+msgstr "检测到："
 
 msgid "Leave \"auto\" to detect automatically"
-msgstr "auto 自动检测，或手动指定"
-
-msgid "Download & Update"
-msgstr "下载与更新"
+msgstr "保留“auto”以自动检测"
 
 msgid "Download Mirror"
 msgstr "下载镜像"
 
 msgid "GitHub (github.com/gdy666/lucky)"
-msgstr "GitHub (github.com/gdy666/lucky)"
+msgstr "GitHub（github.com/gdy666/lucky）"
 
 msgid "Official (release.66666.plus)"
-msgstr "官方 (release.66666.plus)"
+msgstr "官方版（release.66666.plus）"
 
 msgid "Release Channel"
-msgstr "发布通道"
+msgstr "发布渠道"
 
 msgid "Beta only available with Official mirror"
-msgstr "Beta版仅在使用官方镜像时可用"
+msgstr "仅官方镜像支持测试版"
 
 msgid "Stable"
 msgstr "稳定版"
 
 msgid "Beta"
-msgstr "Beta版"
+msgstr "测试版"
 
 msgid "Lucky Variant"
-msgstr "Lucky版本类型"
+msgstr "Lucky 变体"
 
 msgid "Standard: smaller. Full-featured: more functions"
-msgstr "标准版：体积小。全功能版：功能更多"
+msgstr "标准版：体积更小；全功能版：功能更多"
 
 msgid "Standard (lucky)"
-msgstr "标准版 (lucky)"
+msgstr "标准版（lucky）"
 
 msgid "Full-featured (wanji)"
-msgstr "全功能版 (wanji)"
+msgstr "全功能版（wanji）"
 
 msgid "Respawn Policy"
 msgstr "重启策略"
@@ -306,55 +246,131 @@ msgstr "检查间隔（天）"
 msgid "Range: 1 – 365 days"
 msgstr "范围：1 – 365 天"
 
-msgid "Saved"
-msgstr "已保存"
+msgid "N/A"
+msgstr "不适用"
 
-msgid "Save Failed"
-msgstr "保存失败"
+msgid "d"
+msgstr "天"
 
-msgid "Settings saved successfully."
-msgstr "设置已保存。"
+msgid "h"
+msgstr "小时"
 
-msgid "Save failed"
-msgstr "保存失败"
+msgid "m"
+msgstr "分钟"
 
-msgid "No Backups"
-msgstr "没有备份"
+msgid "s"
+msgstr "秒"
 
-msgid "No backup files found."
-msgstr "未找到备份文件。"
+msgid "Starting download…"
+msgstr "正在开始下载…"
 
-msgid "Restore backup: %s ?"
-msgstr "恢复备份：%s ？"
+msgid "Failed to start, please check the log."
+msgstr "启动失败，请检查日志。"
 
-msgid "Restored"
-msgstr "已恢复"
+msgid "Downloading…"
+msgstr "正在下载…"
 
-msgid "Failed"
-msgstr "失败"
+msgid "Installing…"
+msgstr "正在安装…"
 
-msgid "Backup restored successfully."
-msgstr "备份恢复成功。"
+msgid "Checking upstream…"
+msgstr "正在检查上游版本…"
 
-msgid "Restore failed"
-msgstr "恢复失败"
+msgid "Lucky core downloaded successfully. Service is starting…"
+msgstr "Lucky 核心下载成功，服务正在启动…"
 
-msgid "Select Backup to Restore"
-msgstr "选择要恢复的备份"
+msgid "✗ %s"
+msgstr "✗ %s"
 
-msgid "Click a file to restore it:"
-msgstr "点击文件以恢复："
+msgid "Download failed"
+msgstr "下载失败"
 
-msgid "Cancel"
-msgstr "取消"
+msgid "Download Lucky Core"
+msgstr "下载 Lucky 核心"
 
-msgid "Restore Backup"
-msgstr "恢复备份"
+msgid "Lucky core binary not found"
+msgstr "未找到 Lucky 核心程序"
 
-# view/lucky/update.js
+msgid "The Lucky executable is missing. Download it to start the service."
+msgstr "缺少 Lucky 可执行文件。请下载后启动服务。"
 
-msgid "Loading..."
-msgstr "加载中…"
+msgid "Restart Lucky"
+msgstr "重启 Lucky"
+
+msgid "Enable Lucky"
+msgstr "启用 Lucky"
+
+msgid "Checking…"
+msgstr "正在检查…"
+
+msgid "CPU Usage"
+msgstr "CPU 使用率"
+
+msgid "Memory"
+msgstr "内存"
+
+msgid "Process"
+msgstr "进程"
+
+msgid "Version Info"
+msgstr "版本信息"
+
+msgid "Variant"
+msgstr "变体"
+
+msgid "Arch"
+msgstr "架构"
+
+msgid "Access Info"
+msgstr "访问信息"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Internet Access"
+msgstr "互联网访问"
+
+msgid "Enabled"
+msgstr "已启用"
+
+msgid "Disabled"
+msgstr "已禁用"
+
+msgid "Entrance"
+msgstr "入口"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "Official Website"
+msgstr "官方网站"
+
+msgid "GitHub Lucky"
+msgstr "GitHub Lucky"
+
+msgid "GitHub LuCI"
+msgstr "GitHub LuCI"
+
+msgid "Lucky — Status"
+msgstr "Lucky — 状态"
+
+msgid "RUNNING"
+msgstr "运行中"
+
+msgid "NOT RUNNING"
+msgstr "未运行"
+
+msgid "Uptime:"
+msgstr "运行时间："
+
+msgid "Open Lucky Web UI"
+msgstr "打开 Lucky Web UI"
+
+msgid "Cores:"
+msgstr "核心数："
+
+msgid "Threads:"
+msgstr "线程数："
 
 msgid "Lucky Version"
 msgstr "Lucky 版本"
@@ -362,23 +378,26 @@ msgstr "Lucky 版本"
 msgid "LuCI Version"
 msgstr "LuCI 版本"
 
-msgid "Variant"
-msgstr "版本类型"
-
-msgid "Architecture"
-msgstr "系统架构"
-
-msgid "Binary Path"
-msgstr "二进制路径"
-
 msgid "Data Dir"
 msgstr "数据目录"
 
 msgid "Current Installation"
-msgstr "当前安装"
+msgstr "当前安装信息"
 
-msgid "Click to check"
-msgstr "点击检查"
+msgid "Switch mirror and retry:"
+msgstr "切换镜像后重试："
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "Official"
+msgstr "官方版"
+
+msgid "Retry"
+msgstr "重试"
+
+msgid "Click to check for updates"
+msgstr "点击检查更新"
 
 msgid "Version:"
 msgstr "版本："
@@ -389,23 +408,8 @@ msgstr "文件："
 msgid "Install Now"
 msgstr "立即安装"
 
-msgid "Switch mirror and retry:"
-msgstr "切换镜像并重试："
-
-msgid "GitHub"
-msgstr "GitHub"
-
-msgid "Official"
-msgstr "官方"
-
-msgid "Stable"
-msgstr "稳定版"
-
-msgid "Beta"
-msgstr "Beta 版"
-
-msgid "Retry"
-msgstr "重试"
+msgid "(No log)"
+msgstr "（无日志）"
 
 msgid "Lucky — Download & Update"
 msgstr "Lucky — 下载与更新"
@@ -414,16 +418,13 @@ msgid "Lucky Core Update"
 msgstr "Lucky 核心更新"
 
 msgid "Check Upstream"
-msgstr "检查上游"
+msgstr "检查上游版本"
 
 msgid "LuCI App Update"
 msgstr "LuCI 应用更新"
 
 msgid "Check LuCI"
 msgstr "检查 LuCI"
-
-msgid "View logs"
-msgstr "查看日志"
 
 msgid "Auto Update Log"
 msgstr "自动更新日志"
@@ -437,9 +438,6 @@ msgstr "清除所有更新缓存和日志？"
 msgid "Done"
 msgstr "完成"
 
-msgid "Failed"
-msgstr "失败"
-
 msgid "Cache cleared."
 msgstr "缓存已清除。"
 
@@ -449,223 +447,24 @@ msgstr "清除失败。"
 msgid "Clear Cache"
 msgstr "清除缓存"
 
-msgid "Checking…"
-msgstr "检查中…"
-
 msgid "✗ Failed to start check"
 msgstr "✗ 启动检查失败"
 
-msgid "✗ Please select version and file"
-msgstr "✗ 请选择版本和文件"
+msgid "✗ Please select version and file first"
+msgstr "✗ 请先选择版本和文件"
 
 msgid "Starting…"
-msgstr "启动中…"
+msgstr "正在启动…"
 
-msgid "✗ Failed"
-msgstr "✗ 失败"
-
-msgid "Checking"
-msgstr "检查中"
+msgid "✗ Failed to start install"
+msgstr "✗ 启动安装失败"
 
 msgid "✓ Found %d version(s)"
 msgstr "✓ 找到 %d 个版本"
 
-msgid "✗ %s"
-msgstr "✗ %s"
-
 msgid "Error"
 msgstr "错误"
-
-msgid "Downloading"
-msgstr "下载中"
-
-msgid "Installing"
-msgstr "安装中"
 
 msgid "✓ Complete: %s"
 msgstr "✓ 完成：%s"
 
-msgid "Unknown"
-msgstr "未知"
-
-msgid "(No log)"
-msgstr "（无日志）"
-
-# lucky/log.js
-
-msgid "Check: mirror="
-msgstr "检查: 镜像="
-
-msgid "Auto update: mirror="
-msgstr "自动更新: 镜像="
-
-msgid "Found releases:"
-msgstr "找到版本数:"
-
-msgid "LuCI releases found:"
-msgstr "找到 LuCI 版本数:"
-
-msgid "Trying LuCI API:"
-msgstr "尝试 LuCI API:"
-
-msgid "Got response from:"
-msgstr "成功响应来自:"
-
-msgid "WARN: No response from"
-msgstr "警告: 无响应来自"
-
-msgid "ERROR: All LuCI APIs failed"
-msgstr "错误: 所有 LuCI API 均不可用"
-
-msgid "Current lucky version:"
-msgstr "当前 lucky 版本:"
-
-msgid "Lucky binary not found, downloading automatically"
-msgstr "未找到 lucky 程序，自动下载中"
-
-msgid "No package manager found, skipping LuCI"
-msgstr "未找到包管理器，跳过 LuCI 更新"
-
-msgid "WARN: No LuCI releases found"
-msgstr "警告: 未找到 LuCI 版本"
-
-msgid "LuCI current version:"
-msgstr "当前 LuCI 版本:"
-
-msgid "Latest version:"
-msgstr "最新版本:"
-
-msgid "Auto update complete"
-msgstr "自动更新完成"
-
-msgid "Downloading:"
-msgstr "下载中:"
-
-msgid "Download URL:"
-msgstr "下载地址:"
-
-msgid "Total size: unknown"
-msgstr "文件大小: 未知"
-
-msgid "Total size:"
-msgstr "文件大小:"
-
-msgid "Progress:"
-msgstr "下载进度:"
-
-msgid "SHA256 verification failed"
-msgstr "SHA256 校验失败"
-
-msgid "SHA256 verified OK"
-msgstr "SHA256 校验成功"
-
-msgid "Download complete:"
-msgstr "下载完成:"
-
-msgid "Extracting archive..."
-msgstr "正在解压..."
-
-msgid "Found binary:"
-msgstr "找到可执行文件:"
-
-msgid "Stopping service..."
-msgstr "正在停止服务..."
-
-msgid "Installing to:"
-msgstr "安装至:"
-
-msgid "Starting service..."
-msgstr "正在启动服务..."
-
-msgid "Installation complete:"
-msgstr "安装完成:"
-
-msgid "Installing LuCI package..."
-msgstr "正在安装 LuCI 插件包..."
-
-msgid "Installing language pack:"
-msgstr "正在安装语言包:"
-
-msgid "Language pack installed:"
-msgstr "语言包安装完成:"
-
-msgid "Language pack installation failed"
-msgstr "语言包安装失败"
-
-msgid "LuCI installed:"
-msgstr "LuCI 安装完成:"
-
-msgid "Config backed up:"
-msgstr "配置已备份："
-
-msgid "WARN: Failed to fetch"
-msgstr "警告: 获取失败"
-
-msgid "WARN: Empty index for tag"
-msgstr "警告: 版本目录为空，标签"
-
-msgid "WARN: No subdir for"
-msgstr "警告: 未找到子目录，"
-
-msgid "WARN: Empty subdirectory listing"
-msgstr "警告: 子目录列表为空"
-
-msgid "WARN: No files found in"
-msgstr "警告: 目录中未找到文件"
-
-msgid "Lucky is up to date"
-msgstr "Lucky 已是最新版本"
-
-msgid "LuCI is up to date"
-msgstr "LuCI 已是最新版本"
-
-msgid "ERROR: GitHub API failed or invalid response"
-msgstr "错误: GitHub API 请求失败或响应无效"
-
-msgid "ERROR: No matching version tags found"
-msgstr "错误: 未找到匹配的版本标签"
-
-msgid "ERROR: Binary 'lucky' not found in archive"
-msgstr "错误: 压缩包中未找到 lucky 可执行文件"
-
-msgid "ERROR: Extract failed:"
-msgstr "错误: 解压失败:"
-
-msgid "ERROR: Unsupported format:"
-msgstr "错误: 不支持的文件格式:"
-
-msgid "ERROR: Failed to install"
-msgstr "错误: 安装失败"
-
-msgid "ERROR: Download failed:"
-msgstr "错误: 下载失败:"
-
-msgid "ERROR: Downloaded file is empty"
-msgstr "错误: 下载的文件为空"
-
-msgid "ERROR: No lucky releases found"
-msgstr "错误: 未找到 lucky 版本"
-
-msgid "ERROR: No LuCI releases found"
-msgstr "错误: 未找到 LuCI 版本"
-
-msgid "ERROR: No package manager found"
-msgstr "错误: 未找到包管理器"
-
-msgid "ERROR: Unknown mirror:"
-msgstr "错误: 未知的镜像源:"
-
-msgid "ERROR: Download URL not found for"
-msgstr "错误: 未找到下载地址，文件"
-
-msgid "ERROR: LuCI package install failed"
-msgstr "错误: LuCI 插件包安装失败"
-
-msgid "ERROR: No releases file after check"
-msgstr "错误: 检查完成后未生成版本文件"
-
-msgid "ERROR: Cannot parse latest tag"
-msgstr "错误: 无法解析最新版本标签"
-
-msgid "ERROR: Cannot parse best file"
-msgstr "错误: 无法解析最佳匹配文件"
