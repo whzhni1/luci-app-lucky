@@ -21,6 +21,75 @@ msgstr "基本设置"
 msgid "Download & Update"
 msgstr "下载与更新"
 
+msgid "Installing LuCI…"
+msgstr "正在安装 LuCI…"
+
+msgid "Ready"
+msgstr "就绪"
+
+msgid "Complete"
+msgstr "完成"
+
+msgid "Downloaded file is empty"
+msgstr "下载的文件为空"
+
+msgid "SHA256 verification failed"
+msgstr "SHA256 校验失败"
+
+msgid "Download URL not found"
+msgstr "未找到下载地址"
+
+msgid "Extract failed"
+msgstr "解压失败"
+
+msgid "Unsupported format"
+msgstr "不支持的文件格式"
+
+msgid "Lucky binary not found in archive"
+msgstr "压缩包中未找到 Lucky 程序"
+
+msgid "Installation failed"
+msgstr "安装失败"
+
+msgid "Package manager not found"
+msgstr "未找到包管理器"
+
+msgid "No releases found"
+msgstr "未找到版本"
+
+msgid "Update check failed"
+msgstr "更新检查失败"
+
+msgid "Unknown mirror"
+msgstr "未知镜像"
+
+msgid "Invalid update request"
+msgstr "更新请求无效"
+
+msgid "File not found"
+msgstr "文件未找到"
+
+msgid "Config directory is not set"
+msgstr "未设置配置目录"
+
+msgid "Language pack installation failed"
+msgstr "语言包安装失败"
+
+msgid "Failed to start check"
+msgstr "启动检查失败"
+
+msgid "Please select version and file first"
+msgstr "请先选择版本和文件"
+
+msgid "Failed to start install"
+msgstr "启动安装失败"
+
+msgid "Found %d version(s)"
+msgstr "找到 %d 个版本"
+
+msgid "Complete: %s"
+msgstr "完成：%s"
+
 msgid "Switch to light theme"
 msgstr "切换到浅色主题"
 
@@ -47,6 +116,21 @@ msgstr "失败"
 
 msgid "OK"
 msgstr "确定"
+
+msgid "Checking upstream…"
+msgstr "正在检查上游版本…"
+
+msgid "Downloading…"
+msgstr "正在下载…"
+
+msgid "Installing…"
+msgstr "正在安装…"
+
+msgid "Download failed"
+msgstr "下载失败"
+
+msgid "Error"
+msgstr "错误"
 
 msgid "Saved"
 msgstr "已保存"
@@ -267,23 +351,8 @@ msgstr "正在开始下载…"
 msgid "Failed to start, please check the log."
 msgstr "启动失败，请检查日志。"
 
-msgid "Downloading…"
-msgstr "正在下载…"
-
-msgid "Installing…"
-msgstr "正在安装…"
-
-msgid "Checking upstream…"
-msgstr "正在检查上游版本…"
-
 msgid "Lucky core downloaded successfully. Service is starting…"
 msgstr "Lucky 核心下载成功，服务正在启动…"
-
-msgid "✗ %s"
-msgstr "✗ %s"
-
-msgid "Download failed"
-msgstr "下载失败"
 
 msgid "Download Lucky Core"
 msgstr "下载 Lucky 核心"
@@ -447,24 +516,6 @@ msgstr "清除失败。"
 msgid "Clear Cache"
 msgstr "清除缓存"
 
-msgid "✗ Failed to start check"
-msgstr "✗ 启动检查失败"
-
-msgid "✗ Please select version and file first"
-msgstr "✗ 请先选择版本和文件"
-
 msgid "Starting…"
 msgstr "正在启动…"
-
-msgid "✗ Failed to start install"
-msgstr "✗ 启动安装失败"
-
-msgid "✓ Found %d version(s)"
-msgstr "✓ 找到 %d 个版本"
-
-msgid "Error"
-msgstr "错误"
-
-msgid "✓ Complete: %s"
-msgstr "✓ 完成：%s"
 

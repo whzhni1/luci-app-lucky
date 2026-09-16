@@ -320,13 +320,15 @@ do_download() {
         log "Total size: $(fmt_size "$total_size")"
         (
             while true; do
-                sleep 2
-                [ -f "$f" ] || continue
-                downloaded=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
-                [ "${downloaded:-0}" -gt 0 ] || continue
-                pct=$(awk "BEGIN{printf \"%d\", $downloaded*100/$total_size}")
-                echo "$pct" > "$progress"
-                [ "$pct" -ge 100 ] && break
+                if [ -f "$f" ]; then
+                    downloaded=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
+                    if [ "${downloaded:-0}" -gt 0 ] 2>/dev/null; then
+                        pct=$(awk "BEGIN{printf \"%d\", $downloaded*100/$total_size}")
+                        echo "$pct" > "$progress"
+                        [ "$pct" -ge 100 ] && break
+                    fi
+                fi
+                sleep 1
             done
         ) &
         local progress_pid=$!
@@ -432,9 +434,10 @@ cmd_check_luci() {
 }
 
 install_luci_pkg() {
+    local logfile="${LOG_TO_FILE:-/dev/null}"
     case "$1" in
-        apk)  apk  add --allow-untrusted "$2" >/dev/null 2>&1 ;;
-        opkg) opkg install               "$2" >/dev/null 2>&1 ;;
+        apk)  apk  add --allow-untrusted "$2" 2>&1 | tr -d '\r' >> "$logfile" ;;
+        opkg) opkg install               "$2" 2>&1 | tr -d '\r' >> "$logfile" ;;
         *)    return 1 ;;
     esac
 }
@@ -613,4 +616,5 @@ case "$1" in
         echo "Usage: $0 {check|download|check_luci|download_luci|auto|detect_arch|detect_pm}"
         exit 1 ;;
 esac
+
 
