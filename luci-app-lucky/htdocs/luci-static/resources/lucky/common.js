@@ -36,7 +36,8 @@ var ICONS = {
                'M3.27 6.96L12 12.01l8.73-5.05', 'M12 22.08V12'],
     sparkles: ['M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z',
                'M20 3v4', 'M22 5h-4', 'M4 17v2', 'M5 18H3'],
-    ban:      ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M4.93 4.93L19.07 19.07']
+    ban:      ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M4.93 4.93L19.07 19.07'],
+    sliders:  ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M1 14h6', 'M9 8h6', 'M17 16h6']
 };
 
 function icon(key, size) {
@@ -120,6 +121,7 @@ var theme = {
         if (t !== 'light' && t !== 'dark') return Promise.resolve({});
         themeState = t;
         theme.apply(t);
+        applyAllColors();
         syncThemeBtn();
         try { localStorage.setItem('lucky-theme', t); } catch(e) {}
         try { themeSave(t); } catch(e) {}
@@ -178,6 +180,332 @@ var bg = {
     }
 };
 
+var COLOR_KEYS = ['color_primary', 'color_text', 'color_card', 'color_deco'];
+var COLOR_DEFAULTS = {
+    light: { color_primary: '#1976d2', color_text: '#171c26', color_card: '#e0eeff', color_deco: '#8898d0' },
+    dark:  { color_primary: '#4d9bf5', color_text: '#e8ecf3', color_card: '#464c82', color_deco: '#202450' }
+};
+var colorSettings = {};var colorAlpha = {};
+COLOR_KEYS.forEach(function(k) { colorSettings[k] = ''; });
+var colorSaveRpc = rpc.declare({ object: 'luci.lucky', method: 'save_settings', params: COLOR_KEYS, expect: { '': {} } });
+
+function hexToRgb(hex) {
+    var m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [0,0,0];
+}
+function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+    }
+    return [h * 360, s * 100, l * 100];
+}
+function hslToRgb(h, s, l) {
+    h /= 360; s /= 100; l /= 100;
+    if (s === 0) { var v = Math.round(l * 255); return [v, v, v]; }
+    function h2r(p, q, t) {
+        if (t < 0) t += 1; if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+    }
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    return [Math.round(h2r(p,q,h+1/3)*255), Math.round(h2r(p,q,h)*255), Math.round(h2r(p,q,h-1/3)*255)];
+}
+function hexToHsl(hex) { var c = hexToRgb(hex); return rgbToHsl(c[0], c[1], c[2]); }
+function hslToHex(h, s, l) {
+    var c = hslToRgb(h, s, l);
+    return '#' + ((1<<24)+(c[0]<<16)+(c[1]<<8)+c[2]).toString(16).slice(1);
+}
+function darkenHex(hex, pct) {
+    var h = hexToHsl(hex);
+    return hslToHex(h[0], h[1], Math.max(0, h[2] - pct));
+}
+function lightenHex(hex, pct) {
+    var h = hexToHsl(hex);
+    return hslToHex(h[0], h[1], Math.min(100, h[2] + pct));
+}
+function shiftHue(hex, deg) {
+    var h = hexToHsl(hex);
+    return hslToHex((h[0] + deg + 360) % 360, h[1], h[2]);
+}
+function hexToRgba(hex, a) {
+    var c = hexToRgb(hex);
+    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+}
+function removeStyle(id) { var el = document.getElementById(id); if (el) el.parentNode.removeChild(el); }
+function injectStyle(id, css) {
+    removeStyle(id);
+    var s = document.createElement('style');
+    s.id = id;
+    s.textContent = css;
+    document.head.appendChild(s);
+}
+function applyPrimaryColor(hex, alpha) {
+    var a = (typeof alpha === 'number') ? alpha : 1;
+    var root = document.documentElement;
+    ['--lucky-primary','--lucky-primary-hover','--lucky-on-primary','--lucky-focus-ring','--lucky-tab-active'].forEach(function(v) { root.style.removeProperty(v); });
+    removeStyle('lucky-color-primary');
+    if (!hex) return;
+    var end = shiftHue(hex, 30);
+    var hsl = hexToHsl(hex);
+    var onPri = hsl[2] > 55 ? '#171c26' : '#ffffff';
+    var p = a < 1 ? hexToRgba(hex, a) : hex;
+    var e = a < 1 ? hexToRgba(end, a) : end;
+    var hv = a < 1 ? hexToRgba(darkenHex(hex, 10), a) : darkenHex(hex, 10);
+    root.style.setProperty('--lucky-primary', p);
+    root.style.setProperty('--lucky-primary-hover', hv);
+    root.style.setProperty('--lucky-on-primary', onPri);
+    root.style.setProperty('--lucky-focus-ring', hexToRgba(hex, 0.18 * a));
+    root.style.setProperty('--lucky-tab-active', 'linear-gradient(135deg,'+p+' 0%,'+e+' 100%)');
+    var css = '.lucky-btn-primary{background:linear-gradient(135deg,'+p+' 0%,'+e+' 100%)!important;border-color:'+hexToRgba(end,0.45*a)+'!important;box-shadow:0 2px 10px '+hexToRgba(hex,0.28*a)+',inset 0 1px 0 rgba(255,255,255,'+(0.28*a)+')!important}';
+    css += '#tabmenu ul.cbi-tabmenu li.cbi-tab a,#tabmenu ul.tabs li.active a{background:linear-gradient(135deg,'+p+' 0%,'+e+' 100%)!important;border-color:'+hexToRgba(end,0.4*a)+'!important;box-shadow:0 4px 14px '+hexToRgba(hex,0.35*a)+',inset 0 1px 0 rgba(255,255,255,'+(0.25*a)+')!important}';
+    css += '#mainmenu li.mainmenu-item-lucky.selected>a,#mainmenu li.lucky-menu-parent.selected>a{background:linear-gradient(135deg,'+p+' 0%,'+e+' 100%)!important;box-shadow:0 4px 14px '+hexToRgba(hex,0.35*a)+'!important}';
+    injectStyle('lucky-color-primary', css);
+}
+function applyTextColor(hex, alpha) {
+    var a = (typeof alpha === 'number') ? alpha : 1;
+    var root = document.documentElement;
+    ['--lucky-text','--lucky-text-2','--lucky-text-3'].forEach(function(v) { root.style.removeProperty(v); });
+    if (!hex) return;
+    root.style.setProperty('--lucky-text', a < 1 ? hexToRgba(hex, a) : hex);
+    root.style.setProperty('--lucky-text-2', a < 1 ? hexToRgba(lightenHex(hex, 25), a) : lightenHex(hex, 25));
+    root.style.setProperty('--lucky-text-3', a < 1 ? hexToRgba(lightenHex(hex, 45), a) : lightenHex(hex, 45));
+}
+function applyCardColor(hex, alpha) {
+    var a = (typeof alpha === 'number') ? alpha : 1;
+    var root = document.documentElement;
+    ['--lucky-card-bg','--lucky-surface-bg','--lucky-card-bg-solid','--lucky-cell-bg'].forEach(function(v) { root.style.removeProperty(v); });
+    if (!hex) return;
+    var c = hexToRgb(hex);
+    var grad = 'linear-gradient(135deg,rgba('+c+','+(0.5*a)+') 0%,rgba('+c+','+(0.3*a)+') 100%)';
+    root.style.setProperty('--lucky-card-bg', grad);
+    root.style.setProperty('--lucky-surface-bg', grad);
+    root.style.setProperty('--lucky-card-bg-solid', 'rgba('+c+','+(0.96*a)+')');
+    root.style.setProperty('--lucky-cell-bg', 'rgba('+c+','+(0.28*a)+')');
+}
+function rebuildDecoGradient(hex) {
+    var c = hexToRgb(hex);
+    return 'radial-gradient(900px 520px at 8% -15%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.58), transparent 62%),' +
+        'radial-gradient(760px 480px at 96% -10%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.48), transparent 60%),' +
+        'radial-gradient(820px 560px at 78% 88%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.46), transparent 62%),' +
+        'radial-gradient(700px 460px at 18% 92%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.46), transparent 62%),' +
+        'radial-gradient(1200px 700px at 50% 40%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.32), transparent 70%),' +
+        'linear-gradient(160deg, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.15) 0%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.08) 48%, rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.18) 100%)';
+}
+function applyDecoColor(hex) {
+    var root = document.documentElement;
+    root.style.removeProperty('--lucky-page-deco');
+    root.style.removeProperty('--lucky-deco-color');
+    if (!hex) return;
+    root.style.setProperty('--lucky-deco-color', hex);
+    root.style.setProperty('--lucky-page-deco', rebuildDecoGradient(hex));
+}
+function applyAllColors() {
+    COLOR_KEYS.forEach(function(k) {
+        if (!colorSettings[k]) return;
+        var a = (colorAlpha[k] || 100) / 100;
+        if (k === 'color_primary') applyPrimaryColor(colorSettings[k], a);
+        else if (k === 'color_text') applyTextColor(colorSettings[k], a);
+        else if (k === 'color_card') applyCardColor(colorSettings[k], a);
+        else if (k === 'color_deco') applyDecoColor(colorSettings[k]);
+    });
+}
+function clearColor(key) {
+    colorSettings[key] = '';
+    var root = document.documentElement;
+    if (key === 'color_primary') {
+        ['--lucky-primary','--lucky-primary-hover','--lucky-on-primary','--lucky-focus-ring','--lucky-tab-active'].forEach(function(v) { root.style.removeProperty(v); });
+        removeStyle('lucky-color-primary');
+    } else if (key === 'color_text') {
+        ['--lucky-text','--lucky-text-2','--lucky-text-3'].forEach(function(v) { root.style.removeProperty(v); });
+    } else if (key === 'color_card') {
+        ['--lucky-card-bg','--lucky-surface-bg','--lucky-card-bg-solid','--lucky-cell-bg'].forEach(function(v) { root.style.removeProperty(v); });
+    } else if (key === 'color_deco') {
+        root.style.removeProperty('--lucky-page-deco');
+        root.style.removeProperty('--lucky-deco-color');
+    }
+}
+function clearAllColors() {
+    COLOR_KEYS.forEach(function(k) { clearColor(k); });
+}
+function saveCustomColors() {
+    var keys = ['color_primary','color_text','color_card','color_deco'];
+    var args = keys.map(function(k) {
+        var hex = colorSettings[k] || '';
+        var a = colorAlpha[k] || 100;
+        return hexToHex8(hex, a);
+    });
+    try { colorSaveRpc.apply(null, args); } catch(e) {}
+}
+function loadCustomColors() {
+    L.resolveDefault(settingsGet(), {}).then(function(res) {
+        if (!res) return;
+        COLOR_KEYS.forEach(function(k) {
+            var p = parseHex8(res[k] || '');
+            colorSettings[k] = p.hex;
+            colorAlpha[k] = p.a;
+        });
+        applyAllColors();
+    });
+}
+function syncColorBtn() {
+    var b = document.getElementById('lucky-color-btn');
+    if (!b) return;
+    while (b.firstChild) b.removeChild(b.firstChild);
+    b.appendChild(icon('sliders', 16));
+    b.title = _('Color Customization');
+}
+function initColorPanel() {
+    var existing = document.getElementById('lucky-color-panel');
+    if (existing) {
+        if (existing.style.display === 'none') {
+            existing.style.display = '';
+            requestAnimationFrame(function() { existing.style.maxHeight = existing.scrollHeight + 'px'; existing.style.overflowY = 'auto'; });
+        } else {
+            existing.style.maxHeight = '0';
+            existing.style.overflowY = 'hidden';
+            setTimeout(function() { existing.style.display = 'none'; }, 220);
+        }
+        return;
+    }
+    var defs = COLOR_DEFAULTS[themeState] || COLOR_DEFAULTS.light;
+    var labels = { color_primary:_('Primary Color'), color_text:_('Text Color'), color_card:_('Card Background'), color_deco:_('Page Background') };
+    var presets = {
+        color_primary: ['#1976d2','#4d9bf5','#2e7d32','#e65100','#7b1fa2','#c62828','#00838f','#4e342e'],
+        color_text:    ['#171c26','#1a1a2e','#2d2d2d','#3e2723','#1b5e20','#0d47a1','#311b92','#4a148c'],
+        color_card:    ['#e0eeff','#e8eaf6','#e0f2f1','#fff3e0','#fce4ec','#f3e5f5','#e8f5e9','#efebe9'],
+        color_deco:    ['#46aaff','#8898d0','#4d9bf5','#7b68ee','#ff6b9d','#ffa07a','#98d8c8','#c9b1ff']
+    };
+    var panel = E('div', { id:'lucky-color-panel', class:'lucky-color-panel' });
+    panel.style.maxHeight = '0';
+    panel.style.transition = 'max-height 0.22s ease';
+    var stateMap = {};
+    COLOR_KEYS.forEach(function(k) {
+        var val = colorSettings[k] || defs[k];
+        var hsl = hexToHsl(val);
+        stateMap[k] = { h: hsl[0], s: hsl[1], l: hsl[2], a: colorAlpha[k] || 100 };
+        var dot = E('span', { id:'lucky-cdot-'+k, class:'lucky-color-dot', style:'background:'+val });
+        var swatches = E('div', { class:'lucky-color-swatches' });
+        function applyColor(hex) {
+            var st = stateMap[k];
+            var a = st.a / 100;
+            var display = st.a < 100 ? hexToRgba(hex, a) : hex;
+            colorSettings[k] = hex;
+            if (k==='color_primary') applyPrimaryColor(hex, a);
+            else if (k==='color_text') applyTextColor(hex, a);
+            else if (k==='color_card') applyCardColor(hex, a);
+            else if (k==='color_deco') applyDecoColor(hex);
+            dot.style.background = display;
+            var all = swatches.querySelectorAll('.lucky-color-swatch');
+            for (var i = 0; i < all.length; i++) all[i].classList.toggle('is-active', all[i].dataset.c === hex);
+            saveCustomColors();
+        }
+        (presets[k] || []).forEach(function(c) {
+            var s = E('span', { class:'lucky-color-swatch'+(c===val?' is-active':''), style:'background:'+c, 'data-c':c });
+            s.addEventListener('click', function() {
+                var hs = hexToHsl(c);
+                stateMap[k].h = hs[0]; stateMap[k].s = hs[1]; stateMap[k].l = hs[2];
+                hueSlider.value = String(Math.round(hs[0]));
+                applyColor(c);
+            });
+            swatches.appendChild(s);
+        });
+        var hueSlider = E('input', { type:'range', min:'0', max:'359', value:String(Math.round(hsl[0])), class:'lucky-hue-slider', step:'1' });
+        hueSlider.style.background = 'linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(359,100%,50%))';
+        hueSlider.addEventListener('input', function() {
+            var h = parseInt(this.value);
+            stateMap[k].h = h;
+            var c = hslToHex(h, stateMap[k].s, stateMap[k].l);
+            applyColor(c);
+        });
+        var opacitySlider = E('input', { type:'range', min:'0', max:'100', value:String(colorAlpha[k]||100), class:'lucky-opacity-slider' });
+        opacitySlider.addEventListener('input', function() {
+            var a = parseInt(this.value);
+            stateMap[k].a = a;
+            colorAlpha[k] = a;
+            var c = hslToHex(stateMap[k].h, stateMap[k].s, stateMap[k].l);
+            applyColor(c);
+        });
+        var rst = E('button', { type:'button', class:'lucky-iconbtn', title:_('Reset'), style:'width:28px;height:28px;', click:function() {
+            clearColor(k);
+            saveCustomColors();
+            var dh = hexToHsl(defs[k]);
+            stateMap[k] = { h: dh[0], s: dh[1], l: dh[2], a: 100 };
+            colorAlpha[k] = 100;
+            hueSlider.value = String(Math.round(dh[0]));
+            opacitySlider.value = '100';
+            dot.style.background = defs[k];
+            var all = swatches.querySelectorAll('.lucky-color-swatch');
+            for (var i = 0; i < all.length; i++) all[i].classList.toggle('is-active', all[i].dataset.c === defs[k]);
+        }}, [icon('refresh', 12)]);
+        var sliderRow = E('div', { class:'lucky-color-slider-row' }, [hueSlider, rst]);
+        var opacityLabel = E('span', { class:'lucky-slider-label' }, 'A');
+        var opacityRow = E('div', { class:'lucky-color-slider-row' }, [opacityLabel, opacitySlider]);
+        var body = E('div', { id:'lucky-cbody-'+k, class:'lucky-color-body' }, [swatches, sliderRow, opacityRow]);
+        var head = E('div', { class:'lucky-color-head', click:function() {
+            var open = body.style.maxHeight && body.style.maxHeight !== '0px';
+            if (!open) {
+                body.style.maxHeight = 'none';
+                var realH = body.scrollHeight;
+                body.style.maxHeight = '0px';
+                void body.offsetHeight;
+                body.style.maxHeight = realH + 'px';
+            } else {
+                body.style.maxHeight = '0px';
+            }
+            head.classList.toggle('is-open', !open);
+        }}, [dot, E('span', {}, labels[k]), icon('link', 12)]);
+        panel.appendChild(E('div', { class:'lucky-color-row' }, [head, body]));
+    });
+    var foot = E('div', { class:'lucky-color-foot' });
+    foot.appendChild(E('button', { type:'button', class:'lucky-btn', style:'font-size:12px;padding:4px 10px;', click:function() {
+        clearAllColors(); saveCustomColors();
+        COLOR_KEYS.forEach(function(k) {
+            var d = document.getElementById('lucky-cdot-'+k); if (d) d.style.background = defs[k];
+            var dh = hexToHsl(defs[k]);
+            stateMap[k] = { h: dh[0], s: dh[1], l: dh[2], a: 100 };
+            colorAlpha[k] = 100;
+            var body = document.getElementById('lucky-cbody-'+k);
+            if (body) {
+                var sw = body.querySelectorAll('.lucky-color-swatch');
+                for (var i = 0; i < sw.length; i++) sw[i].classList.toggle('is-active', sw[i].dataset.c === defs[k]);
+                var sliders = body.querySelectorAll('input[type="range"]');
+                if (sliders[0]) sliders[0].value = String(Math.round(dh[0]));
+                if (sliders[1]) sliders[1].value = '100';
+            }
+        });
+    }}, _('Restore All Defaults')));
+    foot.appendChild(E('button', { type:'button', class:'lucky-btn lucky-btn-primary', style:'font-size:12px;padding:4px 10px;margin-left:6px;', click:function() {
+        closeColorPanel();
+    }}, _('Close')));
+    panel.appendChild(foot);
+    var bar = document.getElementById('lucky-menu-tools');
+    if (bar) bar.parentNode.insertBefore(panel, bar.nextSibling);
+    else document.body.appendChild(panel);
+    requestAnimationFrame(function() { panel.style.maxHeight = panel.scrollHeight + 'px'; panel.style.overflowY = 'auto'; });
+    function closeColorPanel() {
+        var p = document.getElementById('lucky-color-panel');
+        if (p) { p.style.maxHeight = '0'; p.style.overflowY = 'hidden'; setTimeout(function() { p.style.display = 'none'; }, 220); }
+    }
+    function onDocClick(e) {
+        var p = document.getElementById('lucky-color-panel');
+        if (!p || p.style.display === 'none') return;
+        if (p.style.maxHeight === '0' || p.style.maxHeight === '0px') return;
+        if (p.contains(e.target)) return;
+        var btn = document.getElementById('lucky-color-btn');
+        if (btn && btn.contains(e.target)) return;
+        closeColorPanel();
+    }
+    document.addEventListener('click', onDocClick, true);
+}
 function makeToolButton(id, fn) {
     var b = E('button', {
         id: id,
@@ -224,15 +552,8 @@ function markMenuItems() {
 
 function mountField() {
     if (document.getElementById('lucky-field')) return;
-    var tabmenu = document.getElementById('tabmenu');
-    var host = tabmenu ? tabmenu.parentElement : null;
-    if (!host || host === document.body)
-        host = document.querySelector ? document.querySelector('.lucky-page') : null;
-    if (!host) return;
     var f = E('div', { id: 'lucky-field', class: 'lucky-field' });
-    host.insertBefore(f, host.firstChild);
-    host.style.position = 'relative';
-    host.style.isolation = 'isolate';
+    document.body.insertBefore(f, document.body.firstChild);
 }
 
 function ensureMenuTools() {
@@ -245,6 +566,7 @@ function ensureMenuTools() {
     bar.appendChild(makeToolButton('lucky-bg-btn', function() {
         return bg.toggle();
     }));
+    bar.appendChild(makeToolButton('lucky-color-btn', function() { initColorPanel(); }));
     var tabmenu  = document.getElementById('tabmenu');
     var mainmenu = document.getElementById('mainmenu');
     if (tabmenu) {
@@ -261,6 +583,7 @@ function ensureMenuTools() {
     markMenuItems();
     syncThemeBtn();
     syncBgBtn();
+    syncColorBtn();
     return bar;
 }
 
@@ -591,6 +914,7 @@ try {
 injectCSS();
 theme.load();
 bg.load();
+loadCustomColors();
 
 return baseclass.extend({
     __name__: 'luckyCommon',
@@ -629,4 +953,17 @@ return baseclass.extend({
     taskMessage: taskMessage,
     LogPoller: LogPoller
 });
+
+function hexToHex8(hex, a) {
+    if (a >= 100) return hex;
+    var ah = Math.round(a * 255 / 100).toString(16);
+    if (ah.length < 2) ah = '0' + ah;
+    return hex + ah;
+}
+function parseHex8(hex8) {
+    if (hex8 && hex8.length ===9 && hex8[0] === '#') {
+        return { hex: hex8.substring(0, 7), a: Math.round(parseInt(hex8.substring(7, 9), 16) * 100 / 255) };
+    }
+    return { hex: hex8 || '', a: 100 };
+}
 

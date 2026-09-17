@@ -16,7 +16,8 @@ const SETTINGS = {
     arch: 'auto', mirror: 'github', release_type: 'stable', variant: 'lucky',
     respawn_threshold: '3600', respawn_timeout: '30', respawn_retry: '5',
     auto_update: '0', update_interval: '7', installed_version: '',
-    theme: 'light', bg: '1'
+    theme: 'light', bg: '1',
+    color_primary: '', color_text: '', color_card: '', color_deco: ''
 };
 
 const RESTART_KEYS = [

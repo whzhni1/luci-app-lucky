@@ -36,12 +36,13 @@
     --lucky-tab-active: linear-gradient(135deg, #4d8dff 0%, #7a5cff 100%);
 
     --lucky-page-deco:
-        radial-gradient(900px 520px at 8% -5%, rgba(70,170,255,0.58), transparent 62%),
-        radial-gradient(760px 480px at 96% 0%, rgba(255,110,215,0.48), transparent 60%),
+        radial-gradient(900px 520px at 8% -15%, rgba(70,170,255,0.58), transparent 62%),
+        radial-gradient(760px 480px at 96% -10%, rgba(255,110,215,0.48), transparent 60%),
         radial-gradient(820px 560px at 78% 88%, rgba(255,165,95,0.46), transparent 62%),
         radial-gradient(700px 460px at 18% 92%, rgba(140,105,255,0.46), transparent 62%),
         radial-gradient(1200px 700px at 50% 40%, rgba(150,158,255,0.32), transparent 70%),
         linear-gradient(160deg, #dfe7ff 0%, #e9e0ff 48%, #ffe8f2 100%);
+    --lucky-deco-color: #8898d0;
 
     --lucky-card-warn-bg: linear-gradient(135deg, rgba(255,238,200,0.55) 0%, rgba(255,206,135,0.34) 100%);
     --lucky-card-warn-border: rgba(255,170,70,0.55);
@@ -97,12 +98,13 @@
     --lucky-tab-active: linear-gradient(135deg, #4d8dff 0%, #7a5cff 100%);
 
     --lucky-page-deco:
-        radial-gradient(900px 520px at 8% -5%, rgba(64,140,255,0.5), transparent 62%),
-        radial-gradient(760px 480px at 96% 0%, rgba(255,80,200,0.38), transparent 60%),
+        radial-gradient(900px 520px at 8% -15%, rgba(64,140,255,0.5), transparent 62%),
+        radial-gradient(760px 480px at 96% -10%, rgba(255,80,200,0.38), transparent 60%),
         radial-gradient(820px 560px at 78% 88%, rgba(255,150,70,0.3), transparent 62%),
         radial-gradient(700px 460px at 18% 92%, rgba(120,90,255,0.42), transparent 62%),
         radial-gradient(1200px 700px at 50% 40%, rgba(90,100,220,0.26), transparent 70%),
         linear-gradient(160deg, #12142c 0%, #170f36 55%, #221040 100%);
+    --lucky-deco-color: #202450;
 
     --lucky-card-warn-bg: linear-gradient(135deg, rgba(255,170,70,0.16) 0%, rgba(140,70,0,0.4) 100%);
     --lucky-card-warn-border: rgba(255,162,96,0.35);
@@ -120,6 +122,7 @@
 
 .lucky-page {
     position: relative;
+    z-index: 1;
     min-height: calc(100vh - 120px);
     padding: 16px;
     box-sizing: border-box;
@@ -133,15 +136,13 @@
     z-index: 0;
     pointer-events: none;
     background: var(--lucky-page-deco);
-    animation: lucky-drift 22s ease-in-out infinite alternate;
 }
 .lucky-field {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: -1;
+    z-index: 0;
     pointer-events: none;
     background: var(--lucky-page-deco);
-    animation: lucky-drift 22s ease-in-out infinite alternate;
 }
 .lucky-field ~ .lucky-page::before { display: none; }
 
@@ -173,7 +174,7 @@
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     .lucky-card { background: var(--lucky-card-bg-solid); }
     .lucky-toast { background: var(--lucky-card-bg-solid); }
-    .lucky-panel { background: var(--lucky-card-bg-solid); }
+    .lucky-color-panel { background: var(--lucky-card-bg-solid); }
 }
 
 .lucky-card--warn {
@@ -282,7 +283,7 @@
     background: var(--lucky-input-bg);
     border: 1px solid var(--lucky-input-border);
     border-radius: 8px;
-    padding: 4px 10px;
+    padding: 5px 10px;
     font-size: 14px;
     color: var(--lucky-text);
     box-sizing: border-box;
@@ -294,8 +295,8 @@
     border-color: var(--lucky-primary);
     box-shadow: 0 0 0 3px var(--lucky-focus-ring);
 }
-.lucky-select { width: auto; max-width: 100%; cursor: pointer; }
-.lucky-select option { padding: 4px 10px; }
+.lucky-select { width: auto; max-width: 100%; cursor: pointer; padding: 4px 10px; }
+.lucky-select option { padding: 5px 10px; }
 .lucky-select--tag { max-width: 200px; }
 .lucky-select--file { max-width: 340px; }
 
@@ -556,61 +557,21 @@
 .lucky-toast-title.is-err { color: var(--lucky-danger); }
 .lucky-toast-msg { font-size: 14px; color: var(--lucky-text-2); overflow-wrap: anywhere; }
 
-.lucky-panel-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--lucky-overlay);
-    padding: 16px;
-}
-.lucky-panel {
+.lucky-color-panel {
+    overflow: hidden;
     background: var(--lucky-toast-bg);
     -webkit-backdrop-filter: blur(var(--lucky-blur)) saturate(160%);
     backdrop-filter: blur(var(--lucky-blur)) saturate(160%);
     border: 1px solid var(--lucky-card-border);
-    border-radius: 16px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
-    max-width: 480px;
-    width: 100%;
-    max-height: 80vh;
-    padding: 18px 20px;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-}
-.lucky-panel-title {
-    margin: 0 0 8px;
-    font-size: 15px;
-    color: var(--lucky-text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.lucky-panel-desc { font-size: 13px; color: var(--lucky-text-2); margin: 0 0 10px; }
-.lucky-file-list { overflow-y: auto; min-width: 0; padding-right: 4px; }
-.lucky-file-btn {
-    display: block;
-    width: 100%;
-    text-align: left;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+    margin: 6px 6px 0;
     padding: 10px 14px;
-    margin-bottom: 8px;
-    border: 1px solid var(--lucky-input-border);
-    border-radius: 8px;
-    background: var(--lucky-inset-bg);
-    color: var(--lucky-text);
-    cursor: pointer;
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 220px;
 }
-.lucky-file-btn:hover { border-color: var(--lucky-primary); background: var(--lucky-focus-ring); }
-.lucky-file-btn:active { transform: scale(0.98); }
-.lucky-panel-foot { margin-top: 12px; text-align: right; }
 
 .lucky-theme-btn {
     width: 32px;
@@ -646,6 +607,152 @@
 .lucky-curtain.is-opening {
     animation: lucky-curtain-open 0.8s ease-in-out forwards;
 }
+
+.lucky-color-row {
+    border-bottom: 1px solid var(--lucky-divider);
+}
+.lucky-color-row:last-child { border-bottom: none; }
+.lucky-color-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+.lucky-color-head:hover { background: var(--lucky-inset-bg); border-radius: 6px; }
+.lucky-color-head .lucky-icon {
+    margin-left: auto;
+    color: var(--lucky-text-3);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+.lucky-color-head.is-open .lucky-icon { transform: rotate(90deg); }
+.lucky-color-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--lucky-card-border);
+    flex-shrink: 0;
+}
+.lucky-color-head span { font-size: 14px; color: var(--lucky-text); }
+.lucky-color-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+    padding: 0 4px 10px;
+}
+.lucky-color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0;
+}
+.lucky-color-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 2px solid var(--lucky-input-border);
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+.lucky-color-swatch:hover { transform: scale(1.15); }
+.lucky-color-swatch.is-active { border-color: var(--lucky-primary); }
+.lucky-color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+}
+.lucky-color-picker-row input[type="color"] {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    border: 1px solid var(--lucky-input-border);
+    border-radius: 8px;
+    padding: 3px;
+    cursor: pointer;
+    background: var(--lucky-input-bg);
+}
+.lucky-color-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 6px;
+}
+.lucky-slider-label {
+    font-size: 11px;
+    color: var(--lucky-text-3);
+    width: 12px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.lucky-hue-slider {
+    flex: 1;
+    min-width: 0;
+    height: 20px;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
+    border: 1px solid var(--lucky-input-border);
+    touch-action: none;
+}
+.lucky-hue-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+.lucky-hue-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+.lucky-opacity-slider {
+    flex: 1;
+    min-width: 0;
+    height: 16px;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    border: 1px solid var(--lucky-input-border);
+    touch-action: none;
+    background: linear-gradient(to right, rgba(128,128,128,0), rgba(128,128,128,1)),
+                repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 10px 10px;
+}
+.lucky-opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+.lucky-opacity-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+.lucky-color-foot { margin-top: 10px; text-align: right; }
 
 .lucky-menu-tools { display: flex; gap: 6px; }
 .lucky-menu-tools.is-tabs {
@@ -812,10 +919,7 @@
     50%      { opacity: 0.55; transform: scale(0.94); }
 }
 @keyframes lucky-spin { to { transform: rotate(360deg); } }
-@keyframes lucky-drift {
-    from { transform: translate3d(-1.2%, 0, 0); }
-    to   { transform: translate3d(1.2%, -2.5%, 0); }
-}
+
 @keyframes lucky-flip {
     from { transform: rotate(-90deg) scale(0.5); opacity: 0.3; }
     to   { transform: rotate(0) scale(1); opacity: 1; }
@@ -853,8 +957,6 @@
 .lucky-flip { animation: lucky-flip 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-    .lucky-page::before,
-    .lucky-field,
     .lucky-card,
     .lucky-state--busy,
     .lucky-pulse,
@@ -891,6 +993,9 @@
         padding: 0 6px 8px;
     }
     .lucky-select--file { max-width: 100%; width: 100%; }
+    .lucky-color-panel { margin: 6px 0 0; border-radius: 8px; }
+    .lucky-color-head { padding: 10px 2px; }
+    .lucky-color-body { padding: 0 2px 10px; }
     .lucky-toast { padding: 22px 24px; }
 }
 
