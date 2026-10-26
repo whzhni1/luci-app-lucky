@@ -38,7 +38,7 @@ function getLuckyInfo(bin) {
 
     let command = shellQuote(bin);
     let raw = exec(
-        `if command -v timeout >/dev/null 2>&1; then timeout 2 ${command} -info 2>&1; else ${command} -info 2>&1; fi`
+        `if command -v timeout >/dev/null 2>&1; then timeout 10 ${command} -info 2>&1; else ${command} -info 2>&1; fi`
     );
 
     try {

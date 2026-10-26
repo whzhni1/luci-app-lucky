@@ -2,7 +2,7 @@
 'require baseclass';
 'require rpc';
 
-var LUCKY_ASSET_VERSION = '2.0.10-r13';
+var LUCKY_ASSET_VERSION = '2.0.10-r14';
 var themeMode = 'auto';
 var themeMedia = window.matchMedia
     ? window.matchMedia('(prefers-color-scheme: dark)')
