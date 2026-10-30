@@ -88,7 +88,7 @@ function ensureUiOptions() {
 function writeUciOption(key, value) {
     if (!ensureUciSection()) return false;
     let p = popen(
-        `uci -q set lucky.lucky.${key}='${value}' && uci -q commit lucky`, 'r');
+        `uci -q set lucky.lucky.${key}=${shellQuote(value)} && uci -q commit lucky`, 'r');
     if (!p) return false;
     p.read('all');
     if (p.close() !== 0) return false;
