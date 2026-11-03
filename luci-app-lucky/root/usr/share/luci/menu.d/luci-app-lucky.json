@@ -18,7 +18,7 @@
         }
     },
     "admin/services/lucky/config": {
-        "title": "Basic Settings",
+        "title": "Settings",
         "order": 20,
         "action": {
             "type": "view",
