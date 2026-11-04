@@ -129,7 +129,7 @@ function scheduleShellCommand(command) {
 }
 
 function scheduleServiceAction(action) {
-    if (action !== 'start' && action !== 'stop' && action !== 'restart')
+    if (action !== 'start' && action !== 'stop' && action !== 'restart' && action !== 'reload')
         return false;
     return scheduleShellCommand(`${shellQuote(INIT)} ${action}`);
 }
@@ -306,15 +306,22 @@ const api = {
         if (!ensureUciSection()) return { result: 'error', msg: 'uci_set_failed' };
         let u = cursor(); u.load('lucky');
         let needRestart = false;
+        let needCronSync = false;
         for (let k in RESTART_KEYS) {
             let old = u.get('lucky', 'lucky', k) || SETTINGS[k] || '';
             if (a[k] !== null && a[k] !== old) { needRestart = true; break; }
+        }
+        for (let k in ['auto_update', 'update_interval']) {
+            let old = u.get('lucky', 'lucky', k) || SETTINGS[k] || '';
+            if (a[k] !== null && a[k] !== old) needCronSync = true;
         }
         for (let k in SETTINGS) {
             if (a[k] !== null) u.set('lucky', 'lucky', k, a[k]);
         }
         if (!commitUci(u)) return { result: 'error', msg: 'uci_commit_failed' };
         if (needRestart && !scheduleServiceAction('restart'))
+            return { result: 'error', msg: 'service_action_failed' };
+        if (needCronSync && !needRestart && !scheduleServiceAction('reload'))
             return { result: 'error', msg: 'service_action_failed' };
         return { result: 'ok' };
     },

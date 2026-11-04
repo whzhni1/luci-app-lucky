@@ -107,6 +107,7 @@ sync_cron() {
 
 start_service() {
     init_config
+    sync_cron
 
     [ "$ENABLED" = "1" ] || { log_msg "Lucky is disabled, skipping start."; return 0; }
 
@@ -166,6 +167,7 @@ restart() {
     log_msg "Lucky restart requested."
     stop_for_restart "$@"
     init_config
+    sync_cron
     if [ "$ENABLED" = "1" ]; then
         log_msg "Restarting Lucky because it is enabled."
         start "$@"
